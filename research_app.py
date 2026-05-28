@@ -439,6 +439,10 @@ st.markdown(
         word-break: break-word !important;
     }
 
+    /* ── Hide Streamlit toolbar (GitHub link, deploy btn) ── */
+    [data-testid="stToolbar"] { display: none !important; }
+    [data-testid="stDecoration"] { display: none !important; }
+
     /* ── Sidebar ──────────────────────────────────────── */
     [data-testid="stSidebar"] { background: #f8fafc; }
 
