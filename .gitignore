@@ -1,0 +1,29 @@
+# Secrets — never commit
+.env
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+
+# Streamlit secrets (local override)
+.streamlit/secrets.toml
+
+# Claude workspace (local memory, not part of the project)
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
