@@ -496,10 +496,25 @@ if "example_questions" not in st.session_state:
 # Scroll to top on fresh page load / refresh only (not on every rerun)
 if "page_loaded" not in st.session_state:
     st.session_state.page_loaded = True
-    st.components.v1.html(
-        "<script>window.parent.scrollTo({top:0,behavior:'instant'});</script>",
-        height=0,
-    )
+    st.components.v1.html("""
+        <script>
+        function scrollTop() {
+            var p = window.parent;
+            p.scrollTo({top: 0, behavior: 'instant'});
+            var selectors = [
+                '[data-testid="stAppViewContainer"]',
+                '[data-testid="stMainBlockContainer"]',
+                '.main', 'section.main'
+            ];
+            selectors.forEach(function(s) {
+                var el = p.document.querySelector(s);
+                if (el) el.scrollTop = 0;
+            });
+        }
+        setTimeout(scrollTop, 100);
+        setTimeout(scrollTop, 400);
+        </script>
+    """, height=0)
 
 # Play done chime on the rerun that follows agent completion
 if st.session_state.pop("play_done_sound", False):
