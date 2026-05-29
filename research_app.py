@@ -864,7 +864,7 @@ with st.sidebar:
     if st.button("🗑️ Clear chat", use_container_width=True):
         st.session_state.lc_messages = []
         st.session_state.chat_display = []
-        st.session_state.session_restored = False
+        st.session_state.session_restored = True
         st.session_state.example_questions = random.sample(_QUESTION_POOL, 4)
         _clear_session_storage()
         st.rerun()
