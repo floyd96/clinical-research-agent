@@ -267,196 +267,161 @@ st.set_page_config(
 st.markdown(
     """
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    /* ── Global font ──────────────────────────────────── */
+    html, body, [class*="css"], .stMarkdown, button, input, textarea {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+    }
+
     /* ── Layout ──────────────────────────────────────── */
     [data-testid="stMainBlockContainer"] {
-        max-width: 820px;
+        max-width: 840px;
         margin: 0 auto;
         padding: 1.5rem 2rem 6rem;
     }
+    @media (max-width: 768px) {
+        [data-testid="stMainBlockContainer"] { padding: 1rem 1rem 5rem; }
+    }
+    @media (max-width: 480px) {
+        [data-testid="stMainBlockContainer"] { padding: 0.75rem 0.75rem 5rem; }
+    }
+
+    /* ── Background ───────────────────────────────────── */
+    [data-testid="stMain"] { background: #f1f5f9; }
+    .hero, .cap-grid { position: relative; z-index: 1; }
 
     /* ── Hero ─────────────────────────────────────────── */
-    .hero {
-        text-align: center;
-        padding: 3.5rem 1rem 2rem;
-    }
-    .hero-icon { font-size: 3.25rem; line-height: 1; margin-bottom: 0.75rem; }
+    .hero { text-align: center; padding: 3rem 1rem 1.75rem; }
+    .hero-icon { font-size: 3rem; line-height: 1; margin-bottom: 0.75rem; }
     .hero-title {
-        font-size: 2rem;
-        font-weight: 700;
-        color: #0f172a;
-        letter-spacing: -0.025em;
-        margin-bottom: 0.5rem;
+        font-size: 1.875rem; font-weight: 700; color: #0f172a;
+        letter-spacing: -0.03em; margin-bottom: 0.5rem;
     }
     .hero-sub {
-        font-size: 1.05rem;
-        color: #64748b;
-        max-width: 460px;
-        margin: 0 auto 1.75rem;
-        line-height: 1.65;
+        font-size: 1rem; color: #64748b;
+        max-width: 420px; margin: 0 auto 1.5rem; line-height: 1.65;
     }
-    .hero-badges {
-        display: flex;
-        justify-content: center;
-        gap: 0.625rem;
-        margin-bottom: 0.25rem;
+    .hero-badges { display: flex; justify-content: center; gap: 0.5rem; flex-wrap: wrap; }
+    @media (max-width: 640px) {
+        .hero { padding: 2rem 0.5rem 1.25rem; }
+        .hero-icon { font-size: 2.5rem; }
+        .hero-title { font-size: 1.45rem; }
+        .hero-sub { font-size: 0.9rem; }
     }
 
     /* ── Badges ───────────────────────────────────────── */
     .badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        padding: 5px 13px;
-        border-radius: 20px;
-        font-size: 0.8rem;
-        font-weight: 600;
-        letter-spacing: 0.01em;
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 5px 12px; border-radius: 20px;
+        font-size: 0.78rem; font-weight: 600; letter-spacing: 0.01em;
     }
-    .badge-ct { background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; }
-    .badge-pm { background:#dcfce7; color:#166534; border:1px solid #bbf7d0; }
+    .badge-ct { background: #dbeafe; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .badge-pm { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+    @media (max-width: 480px) {
+        .badge { font-size: 0.72rem; padding: 4px 9px; }
+    }
 
     /* ── Capability cards ─────────────────────────────── */
-    .cap-grid { display:flex; gap:1rem; margin: 1.75rem 0 0; }
+    .cap-grid { display: flex; gap: 1rem; margin: 1.5rem 0 0; }
     .cap-card {
-        flex: 1;
-        background: #f8fafc;
-        border: 1.5px solid #e2e8f0;
-        border-radius: 14px;
-        padding: 1.25rem 1.375rem;
+        flex: 1; background: #ffffff; border: 1.5px solid #e2e8f0;
+        border-radius: 16px; padding: 1.25rem 1.375rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
     }
     .cap-card-icon { font-size: 1.4rem; margin-bottom: 0.5rem; }
-    .cap-card-title {
-        font-size: 0.875rem;
-        font-weight: 600;
-        color: #1e293b;
-        margin-bottom: 0.3rem;
-    }
-    .cap-card-body { font-size: 0.82rem; color: #64748b; line-height: 1.55; }
+    .cap-card-title { font-size: 0.875rem; font-weight: 600; color: #1e293b; margin-bottom: 0.3rem; }
+    .cap-card-body { font-size: 0.82rem; color: #64748b; line-height: 1.6; }
+    @media (max-width: 580px) { .cap-grid { flex-direction: column; } }
 
     /* ── Section label ────────────────────────────────── */
     .section-label {
-        font-size: 0.72rem;
-        font-weight: 700;
-        letter-spacing: 0.09em;
-        text-transform: uppercase;
-        color: #94a3b8;
-        margin: 2rem 0 0.75rem;
+        font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em;
+        text-transform: uppercase; color: #94a3b8; margin: 1.75rem 0 0.75rem;
     }
 
     /* ── Example question buttons ─────────────────────── */
     div[data-testid="column"] .stButton > button {
-        background: #ffffff;
-        border: 1.5px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 0.875rem 1rem;
-        text-align: left;
-        height: auto;
-        min-height: 70px;
-        font-size: 0.875rem;
-        color: #1e293b;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
-        white-space: normal;
-        line-height: 1.5;
-        width: 100%;
+        background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 12px;
+        padding: 0.875rem 1rem; text-align: left; height: auto; min-height: 68px;
+        font-size: 0.875rem; color: #334155; font-weight: 500;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.15s ease;
+        white-space: normal; line-height: 1.5; width: 100%;
     }
     div[data-testid="column"] .stButton > button:hover {
-        border-color: #0891b2;
-        box-shadow: 0 4px 14px rgba(8,145,178,0.12);
-        transform: translateY(-1px);
+        border-color: #3b82f6; background: #eff6ff;
+        box-shadow: 0 4px 12px rgba(59,130,246,0.1);
+        transform: translateY(-1px); color: #1d4ed8;
     }
-
-    /* ── Chat area background ─────────────────────────── */
-    /* Applied only when chat is active via the .chat-active body class trick;
-       we target the stMain viewport and override the default white. */
-    [data-testid="stMain"] {
-        background: #f0f4f8;
+    @media (max-width: 580px) {
+        div[data-testid="column"] .stButton > button {
+            min-height: 56px; font-size: 0.82rem; padding: 0.75rem 0.875rem;
+        }
     }
-    /* Keep the hero/welcome screen feeling light, not washed-out */
-    .hero, .cap-grid { position: relative; z-index: 1; }
 
     /* ── Message cards ────────────────────────────────── */
     [data-testid="stChatMessage"] {
-        background: #ffffff;
-        border-radius: 14px;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
-        padding: 1rem 1.25rem !important;
-        margin-bottom: 0.625rem;
+        background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        padding: 1rem 1.25rem !important; margin-bottom: 0.75rem;
     }
-
-    /* User bubble — light teal tint to distinguish from assistant */
     [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {
-        background: #e8f4fd;
-        border-color: #bde0f5;
+        background: #eff6ff; border-color: #bfdbfe;
+    }
+    @media (max-width: 640px) {
+        [data-testid="stChatMessage"] {
+            padding: 0.875rem 0.875rem !important; border-radius: 12px;
+        }
     }
 
-    /* ── Compact header (when chat is active) ─────────── */
+    /* ── Compact header ───────────────────────────────── */
     .compact-header {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        padding: 0.25rem 0 0.875rem;
-        flex-wrap: wrap;
+        display: flex; align-items: center; gap: 0.625rem;
+        padding: 0.25rem 0 0.875rem; flex-wrap: wrap;
     }
     .compact-title {
-        font-size: 1.15rem;
-        font-weight: 700;
-        color: #0f172a;
-        letter-spacing: -0.01em;
-        margin-right: 0.25rem;
+        font-size: 1.05rem; font-weight: 700; color: #0f172a;
+        letter-spacing: -0.015em; margin-right: 0.25rem;
     }
+    @media (max-width: 480px) { .compact-title { font-size: 0.95rem; } }
 
     /* ── Tables in chat ───────────────────────────────── */
     [data-testid="stChatMessage"] table {
-        display: block;
-        overflow-x: auto;
-        white-space: nowrap;
-        border-collapse: collapse;
-        font-size: 0.875rem;
-        margin: 0.25rem 0;
+        display: block; overflow-x: auto; white-space: nowrap;
+        border-collapse: collapse; font-size: 0.85rem; margin: 0.5rem 0;
     }
     [data-testid="stChatMessage"] table th {
-        background: #f1f5f9;
-        padding: 6px 14px;
-        text-align: left;
-        font-weight: 600;
-        border-bottom: 2px solid #e2e8f0;
+        background: #f8fafc; padding: 7px 14px; text-align: left;
+        font-weight: 600; font-size: 0.8rem; color: #475569;
+        border-bottom: 1.5px solid #e2e8f0;
     }
     [data-testid="stChatMessage"] table td {
-        padding: 6px 14px;
-        border-bottom: 1px solid #f1f5f9;
+        padding: 7px 14px; border-bottom: 1px solid #f1f5f9; color: #334155;
     }
     [data-testid="stChatMessage"] table tr:last-child td { border-bottom: none; }
 
-    /* ── Copy response code block ─────────────────────── */
+    /* ── Copy response block ──────────────────────────── */
     [data-testid="stChatMessage"] [data-testid="stExpander"] pre {
-        background: #f8fafc !important;
-        color: #475569 !important;
-        font-family: inherit !important;
-        font-size: 0.85rem !important;
-        white-space: pre-wrap !important;
-        word-break: break-word !important;
+        background: #f8fafc !important; color: #475569 !important;
+        font-family: inherit !important; font-size: 0.85rem !important;
+        white-space: pre-wrap !important; word-break: break-word !important;
     }
 
-    /* ── Hide Streamlit toolbar (GitHub link, deploy btn) ── */
+    /* ── Toolbar hidden ───────────────────────────────── */
     [data-testid="stToolbar"] { display: none !important; }
     [data-testid="stDecoration"] { display: none !important; }
 
     /* ── Sidebar ──────────────────────────────────────── */
-    [data-testid="stSidebar"] { background: #f8fafc; }
+    [data-testid="stSidebar"] { background: #ffffff; border-right: 1px solid #e8ecf0; }
 
-    /* ── Pill (sidebar) ───────────────────────────────── */
+    /* ── Source pills ─────────────────────────────────── */
     .source-pill {
-        display: inline-block;
-        padding: 3px 10px;
-        border-radius: 12px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        margin-right: 4px;
+        display: inline-flex; align-items: center;
+        padding: 3px 10px; border-radius: 20px;
+        font-size: 0.72rem; font-weight: 600; margin-right: 4px;
     }
-    .pill-ct { background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; }
-    .pill-pm { background:#dcfce7; color:#166534; border:1px solid #bbf7d0; }
+    .pill-ct { background: #dbeafe; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .pill-pm { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
     </style>
     """,
     unsafe_allow_html=True,
