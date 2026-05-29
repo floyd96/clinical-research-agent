@@ -6,3 +6,4 @@ langchain-huggingface>=0.1.0
 langchain-mcp-adapters>=0.1.0
 huggingface_hub>=0.23.0
 python-dotenv>=1.0.0
+streamlit-javascript>=0.1.5

@@ -1,12 +1,14 @@
 import asyncio
+import json
 import queue as q_module
 import random
 import re
 import threading
 from datetime import date
 import streamlit as st
+from streamlit_javascript import st_javascript
 from langchain.agents import create_agent
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
 from research_agent import CLINICALTRIALS_MCP_URL, PUBMED_MCP_URL, SYSTEM_PROMPT, model
@@ -70,6 +72,34 @@ def _copy_button(text: str, key: str):
     clean = re.sub(r'\n{3,}', '\n\n', clean).strip()
     with st.expander("📋 Copy response"):
         st.code(clean, language=None, wrap_lines=True)
+
+
+_LS_KEY = "cri_session"
+
+
+def _save_session(chat_display: list):
+    """Persist chat history to browser localStorage."""
+    import html as _html
+    data = [
+        {"role": i["role"], "content": i.get("content", ""), "sources": i.get("sources", [])}
+        for i in chat_display
+    ]
+    escaped = _html.escape(json.dumps(data, ensure_ascii=False))
+    st.components.v1.html(
+        f"""<textarea id="cri_d" style="display:none">{escaped}</textarea>
+        <script>
+        try{{localStorage.setItem('{_LS_KEY}',document.getElementById('cri_d').value);}}catch(e){{}}
+        </script>""",
+        height=0,
+    )
+
+
+def _clear_session_storage():
+    """Remove saved history from localStorage."""
+    st.components.v1.html(
+        f"<script>try{{localStorage.removeItem('{_LS_KEY}');}}catch(e){{}}</script>",
+        height=0,
+    )
 
 # One persistent event loop so the async HTTP pool is never tied to a closed loop.
 _loop = asyncio.new_event_loop()
@@ -457,6 +487,30 @@ if "queued_prompt" not in st.session_state:
     st.session_state.queued_prompt = None
 if "example_questions" not in st.session_state:
     st.session_state.example_questions = random.sample(_QUESTION_POOL, 4)
+if "session_restored" not in st.session_state:
+    st.session_state.session_restored = False
+
+# ── Restore history from localStorage ────────────────────────────────────────
+# st_javascript must be called on every render; we guard restore with a flag.
+_ls_value = st_javascript(f"localStorage.getItem('{_LS_KEY}') || 'null'")
+if (isinstance(_ls_value, str)
+        and _ls_value not in ("null", "undefined", "")
+        and not st.session_state.session_restored
+        and not st.session_state.chat_display):
+    try:
+        _saved = json.loads(_ls_value)
+        if _saved:
+            st.session_state.chat_display = _saved
+            st.session_state.lc_messages = []
+            for _m in _saved:
+                if _m["role"] == "user":
+                    st.session_state.lc_messages.append(HumanMessage(content=_m["content"]))
+                else:
+                    st.session_state.lc_messages.append(AIMessage(content=_m["content"]))
+            st.session_state.session_restored = True
+            st.rerun()
+    except Exception:
+        pass
 
 # Scroll to top on fresh page load / refresh only (not on every rerun)
 if "page_loaded" not in st.session_state:
@@ -526,7 +580,9 @@ with st.sidebar:
     if st.button("🗑️ Clear chat", use_container_width=True):
         st.session_state.lc_messages = []
         st.session_state.chat_display = []
+        st.session_state.session_restored = False
         st.session_state.example_questions = random.sample(_QUESTION_POOL, 4)
+        _clear_session_storage()
         st.rerun()
 
 # ── Hero (empty) / Compact header (active) ────────────────────────────────────
@@ -677,5 +733,6 @@ if prompt:
             "tools_used": tools_called,
             "sources": list(sources),
         })
+        _save_session(st.session_state.chat_display)
         st.session_state.play_done_sound = True
         st.rerun()
