@@ -9,10 +9,10 @@ from datetime import date
 import streamlit as st
 from streamlit_javascript import st_javascript
 from langchain.agents import create_agent
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
-from research_agent import CLINICALTRIALS_MCP_URL, PUBMED_MCP_URL, SYSTEM_PROMPT, model
+from research_agent import CLINICALTRIALS_MCP_URL, PUBMED_MCP_URL, SYSTEM_PROMPT, model, classifier_model
 
 _SOUND_SEND = """
 <script>
@@ -62,7 +62,7 @@ def _play(sound_html: str):
     st.components.v1.html(sound_html, height=0)
 
 
-def _copy_button(text: str, key: str):
+def _copy_button(text: str):
     clean = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
     clean = re.sub(r'\*(.+?)\*',     r'\1', clean)
     clean = re.sub(r'^#{1,6}\s+',    '',    clean, flags=re.MULTILINE)
@@ -79,7 +79,12 @@ _LS_KEY = "cri_session"
 
 def _save_session(chat_display: list):
     data = [
-        {"role": i["role"], "content": i.get("content", ""), "sources": i.get("sources", [])}
+        {
+            "role": i["role"],
+            "content": i.get("content", ""),
+            "sources": i.get("sources", []),
+            "tools_used": i.get("tools_used", []),
+        }
         for i in chat_display
     ]
     escaped = _html.escape(json.dumps(data, ensure_ascii=False))
@@ -108,6 +113,91 @@ threading.Thread(target=_loop.run_forever, daemon=True).start()
 
 def run_async(coro):
     return asyncio.run_coroutine_threadsafe(coro, _loop).result()
+
+
+def _build_classifier_context(chat_display: list) -> str:
+    """Build a compact session-wide context summary for the intent classifier."""
+    nct_ids, pmids, topics = [], [], []
+    for item in chat_display:
+        if item["role"] != "assistant":
+            continue
+        for src_type, src_id in item.get("sources", []):
+            if src_type == "ct" and src_id not in nct_ids:
+                nct_ids.append(src_id)
+            elif src_type == "pm" and src_id not in pmids:
+                pmids.append(src_id)
+        if item.get("content"):
+            for heading in re.findall(r'^#{1,3} (.+)$', item["content"], re.MULTILINE):
+                topic = heading[:60]
+                if topic not in topics:
+                    topics.append(topic)
+    parts = []
+    if topics:
+        parts.append("Topics discussed: " + "; ".join(topics[-3:]))
+    if nct_ids:
+        parts.append("Trials shown: " + ", ".join(nct_ids[-6:]))
+    if pmids:
+        parts.append("Papers shown: PMID " + ", PMID ".join(pmids[-6:]))
+    return "\n".join(parts) if parts else "No research results retrieved yet."
+
+
+async def classify_intent(user_message: str, context: str) -> str:
+    prompt = (
+        "You are a query classifier for a clinical research assistant.\n\n"
+        "Research results already retrieved in this session:\n"
+        f"{context}\n\n"
+        "New user message:\n"
+        f"{user_message}\n\n"
+        "Is the user asking about something from the retrieved results above "
+        "(e.g. clarification, comparison, summary, or more detail)? "
+        "Or are they asking for NEW information requiring a database search?\n\n"
+        "Reply with exactly one word — 'followup' or 'research':"
+    )
+    result = await classifier_model.ainvoke(prompt)
+    output = result.content.strip().lower()
+    return "followup" if "followup" in output else "research"
+
+
+def run_direct(messages, response_placeholder):
+    """Direct model stream for follow-ups — no tools, no agent loop."""
+    updates = q_module.Queue()
+
+    async def _stream():
+        full_msgs = [SystemMessage(content=SYSTEM_PROMPT)] + messages
+        async for chunk in model.astream(full_msgs):
+            if isinstance(chunk.content, str) and chunk.content:
+                updates.put(("token", chunk.content))
+        updates.put(("done",))
+
+    future = asyncio.run_coroutine_threadsafe(_stream(), _loop)
+    full_response = ""
+
+    while True:
+        try:
+            kind, *data = updates.get(timeout=0.5)
+            if kind == "token":
+                full_response += data[0]
+                response_placeholder.markdown(full_response + " ▌")
+            elif kind == "done":
+                response_placeholder.markdown(full_response)
+                break
+        except q_module.Empty:
+            if future.done():
+                break
+
+    future.result()
+    return full_response
+
+
+def _build_clean_messages(chat_display: list) -> list:
+    """Build HumanMessage/AIMessage list from display history — no tool call artifacts."""
+    msgs = []
+    for item in chat_display:
+        if item["role"] == "user":
+            msgs.append(HumanMessage(content=item["content"]))
+        elif item["role"] == "assistant" and item.get("content"):
+            msgs.append(AIMessage(content=item["content"]))
+    return msgs
 
 
 @st.cache_resource
@@ -781,12 +871,7 @@ if (isinstance(_ls_value, str)
         _saved = json.loads(_ls_value)
         if _saved:
             st.session_state.chat_display = _saved
-            st.session_state.lc_messages = []
-            for _m in _saved:
-                if _m["role"] == "user":
-                    st.session_state.lc_messages.append(HumanMessage(content=_m["content"]))
-                else:
-                    st.session_state.lc_messages.append(AIMessage(content=_m["content"]))
+            st.session_state.lc_messages = _build_clean_messages(_saved)
             st.session_state.session_restored = True
             st.rerun()
     except Exception:
@@ -959,7 +1044,7 @@ else:
                 _render_sources(item["sources"])
 
             if item["role"] == "assistant" and item.get("content"):
-                _copy_button(item["content"], f"hist_{item_idx}")
+                _copy_button(item["content"])
 
 # ── Input ─────────────────────────────────────────────────────────────────────
 prompt = st.chat_input("Ask about clinical trials, published research, or both...")
@@ -975,22 +1060,42 @@ if prompt:
     st.session_state.chat_display.append({"role": "user", "content": prompt})
     st.session_state.lc_messages.append(HumanMessage(content=prompt))
 
+    # ── Classify intent before routing ────────────────────────────────────────
+    prior = st.session_state.chat_display[:-1]
+    if prior:
+        context = _build_classifier_context(prior)
+        try:
+            intent = run_async(classify_intent(prompt, context))
+        except Exception as e:
+            print(f"[classifier] fallback to research — {e}")
+            intent = "research"
+    else:
+        intent = "research"
+
     with st.chat_message("assistant", avatar="🧬"):
-        status_container = st.status("Researching...", expanded=True)
         response_placeholder = st.empty()
-        result, tools_called, full_response, sources = run_agent(
-            st.session_state.lc_messages, status_container, response_placeholder
-        )
 
-        if not full_response and result is None:
-            st.error("Agent returned no response. Please try again.")
-
-        if sources:
-            _render_sources(sources)
+        if intent == "followup":
+            full_response = run_direct(
+                _build_clean_messages(st.session_state.chat_display),
+                response_placeholder,
+            )
+            tools_called, sources, result = [], set(), None
+        else:
+            status_container = st.status("Researching...", expanded=True)
+            result, tools_called, full_response, sources = run_agent(
+                st.session_state.lc_messages, status_container, response_placeholder
+            )
+            if not full_response and result is None:
+                st.error("Agent returned no response. Please try again.")
+            if sources:
+                _render_sources(sources)
 
     if result or full_response:
         if result:
             st.session_state.lc_messages = result["messages"]
+        elif full_response:
+            st.session_state.lc_messages.append(AIMessage(content=full_response))
         st.session_state.chat_display.append({
             "role": "assistant",
             "content": full_response,

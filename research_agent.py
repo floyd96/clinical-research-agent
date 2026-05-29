@@ -128,7 +128,7 @@ Status emojis: 🟢 Recruiting · 🔵 Active, not recruiting · ✅ Completed �
 
 **Combined queries:** Trial cards under "## Clinical Trials", paper cards under "## Published Literature", then a "## Summary" synthesising both in 2 sentences max.
 
-**Response limits (Type A only — strictly enforced):**
+**Response limits (new research queries only — strictly enforced):**
 - At most 3 trials and 3 papers — pick the most relevant ones
 - If more results exist: "X more results available — ask me to narrow the search."
 
@@ -143,6 +143,15 @@ _llm = HuggingFaceEndpoint(
     max_new_tokens=2048,
 )
 model = ChatHuggingFace(llm=_llm)
+
+# Separate endpoint capped at 5 tokens — classification only needs one word output.
+_classifier_llm = HuggingFaceEndpoint(
+    repo_id="Qwen/Qwen2.5-72B-Instruct",
+    task="text-generation",
+    huggingfacehub_api_token=os.getenv("HF_TOKEN"),
+    max_new_tokens=5,
+)
+classifier_model = ChatHuggingFace(llm=_classifier_llm)
 
 
 async def run(user_input: str, agent) -> None:
