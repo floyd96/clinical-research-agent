@@ -1,4 +1,5 @@
 import asyncio
+import html as _html
 import json
 import queue as q_module
 import random
@@ -62,7 +63,6 @@ def _play(sound_html: str):
 
 
 def _copy_button(text: str, key: str):
-    """Render a copy area using Streamlit's native code block (clipboard-safe)."""
     clean = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
     clean = re.sub(r'\*(.+?)\*',     r'\1', clean)
     clean = re.sub(r'^#{1,6}\s+',    '',    clean, flags=re.MULTILINE)
@@ -78,8 +78,6 @@ _LS_KEY = "cri_session"
 
 
 def _save_session(chat_display: list):
-    """Persist chat history to browser localStorage."""
-    import html as _html
     data = [
         {"role": i["role"], "content": i.get("content", ""), "sources": i.get("sources", [])}
         for i in chat_display
@@ -88,16 +86,18 @@ def _save_session(chat_display: list):
     st.components.v1.html(
         f"""<textarea id="cri_d" style="display:none">{escaped}</textarea>
         <script>
-        try{{localStorage.setItem('{_LS_KEY}',document.getElementById('cri_d').value);}}catch(e){{}}
+        try{{
+            var v=document.getElementById('cri_d').value;
+            (window.parent||window).localStorage.setItem('{_LS_KEY}',v);
+        }}catch(e){{}}
         </script>""",
         height=0,
     )
 
 
 def _clear_session_storage():
-    """Remove saved history from localStorage."""
     st.components.v1.html(
-        f"<script>try{{localStorage.removeItem('{_LS_KEY}');}}catch(e){{}}</script>",
+        f"<script>try{{(window.parent||window).localStorage.removeItem('{_LS_KEY}');}}catch(e){{}}</script>",
         height=0,
     )
 
@@ -139,7 +139,6 @@ def _source_badge(tool_name: str) -> str:
 
 
 def _md_to_html_body(text: str) -> str:
-    """Convert a subset of markdown to HTML — no external library needed."""
     t = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     # Headers
     for n in (3, 2, 1):
@@ -459,7 +458,7 @@ st.markdown(
 
 agent, all_tools = get_agent()
 
-# ── Session state ─────────────────────────────────────────────────────────────
+# ── Question pool ─────────────────────────────────────────────────────────────
 _QUESTION_POOL = [
     ("🏥 + 📚", "What do we know about semaglutide for Type 2 Diabetes? Show trials and evidence."),
     ("🏥", "Find Phase 3 trials currently recruiting for Alzheimer's disease"),
@@ -479,6 +478,7 @@ _QUESTION_POOL = [
     ("🏥 + 📚", "What is the current evidence on stem cell therapy for multiple sclerosis?"),
 ]
 
+# ── Session state ─────────────────────────────────────────────────────────────
 if "lc_messages" not in st.session_state:
     st.session_state.lc_messages = []
 if "chat_display" not in st.session_state:
@@ -490,9 +490,8 @@ if "example_questions" not in st.session_state:
 if "session_restored" not in st.session_state:
     st.session_state.session_restored = False
 
-# ── Restore history from localStorage ────────────────────────────────────────
-# st_javascript must be called on every render; we guard restore with a flag.
-_ls_value = st_javascript(f"localStorage.getItem('{_LS_KEY}') || 'null'")
+# ── Restore history from localStorage (runs every render; restores once) ─────
+_ls_value = st_javascript(f"(window.parent||window).localStorage.getItem('{_LS_KEY}') || 'null'")
 if (isinstance(_ls_value, str)
         and _ls_value not in ("null", "undefined", "")
         and not st.session_state.session_restored
@@ -511,6 +510,10 @@ if (isinstance(_ls_value, str)
             st.rerun()
     except Exception:
         pass
+
+# Save history on every render so it's always up-to-date when user refreshes
+if st.session_state.chat_display:
+    _save_session(st.session_state.chat_display)
 
 # Scroll to top on fresh page load / refresh only (not on every rerun)
 if "page_loaded" not in st.session_state:
@@ -733,6 +736,5 @@ if prompt:
             "tools_used": tools_called,
             "sources": list(sources),
         })
-        _save_session(st.session_state.chat_display)
         st.session_state.play_done_sound = True
         st.rerun()
