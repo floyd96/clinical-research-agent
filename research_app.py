@@ -298,6 +298,22 @@ st.markdown(
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
+    /* ── Mobile-First Light Theme Override ─────────────── */
+    @media (max-width: 768px) {
+        /* Force light theme on mobile */
+        html, body, [data-stale="false"] {
+            background-color: #ffffff !important;
+            color: #1e293b !important;
+        }
+        [data-testid="stApp"] {
+            background-color: #f8fafc !important;
+        }
+        /* Ensure all text is dark on mobile */
+        *, *::before, *::after {
+            color: inherit !important;
+        }
+    }
+
     /* ── Global font ──────────────────────────────────── */
     html, body, [class*="css"], .stMarkdown, button, input, textarea {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
@@ -310,14 +326,22 @@ st.markdown(
         padding: 1.5rem 2rem 6rem;
     }
     @media (max-width: 768px) {
-        [data-testid="stMainBlockContainer"] { padding: 1rem 1rem 5rem; }
+        [data-testid="stMainBlockContainer"] {
+            padding: 0.75rem 0.5rem 4rem;
+            max-width: 100%;
+        }
     }
     @media (max-width: 480px) {
-        [data-testid="stMainBlockContainer"] { padding: 0.75rem 0.75rem 5rem; }
+        [data-testid="stMainBlockContainer"] {
+            padding: 0.5rem 0.25rem 4rem;
+        }
     }
 
     /* ── Background ───────────────────────────────────── */
     [data-testid="stMain"] { background: #f1f5f9; }
+    @media (max-width: 768px) {
+        [data-testid="stMain"] { background: #f8fafc !important; }
+    }
     .hero, .cap-grid { position: relative; z-index: 1; }
 
     /* ── Hero ─────────────────────────────────────────── */
@@ -332,11 +356,37 @@ st.markdown(
         max-width: 420px; margin: 0 auto 1.5rem; line-height: 1.65;
     }
     .hero-badges { display: flex; justify-content: center; gap: 0.5rem; flex-wrap: wrap; }
-    @media (max-width: 640px) {
-        .hero { padding: 2rem 0.5rem 1.25rem; }
-        .hero-icon { font-size: 2.5rem; }
-        .hero-title { font-size: 1.45rem; }
-        .hero-sub { font-size: 0.9rem; }
+    @media (max-width: 768px) {
+        .hero {
+            padding: 1.5rem 0.5rem 1rem;
+            background: #ffffff;
+            border-radius: 12px;
+            margin: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .hero-icon { font-size: 2.25rem; }
+        .hero-title {
+            font-size: 1.3rem;
+            color: #1e293b !important;
+        }
+        .hero-sub {
+            font-size: 0.85rem;
+            color: #64748b !important;
+            max-width: 320px;
+        }
+        .hero-badges {
+            gap: 0.25rem;
+            margin-top: 1rem;
+        }
+    }
+    @media (max-width: 480px) {
+        .hero {
+            padding: 1.25rem 0.75rem 0.75rem;
+            margin: 0.25rem;
+        }
+        .hero-icon { font-size: 2rem; }
+        .hero-title { font-size: 1.15rem; }
+        .hero-sub { font-size: 0.8rem; max-width: 280px; }
     }
 
     /* ── Badges ───────────────────────────────────────── */
@@ -347,8 +397,25 @@ st.markdown(
     }
     .badge-ct { background: #dbeafe; color: #1d4ed8; border: 1px solid #bfdbfe; }
     .badge-pm { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+    @media (max-width: 768px) {
+        .badge {
+            font-size: 0.7rem;
+            padding: 4px 10px;
+            background: #ffffff !important;
+            border: 1.5px solid !important;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .badge-ct {
+            color: #1e40af !important;
+            border-color: #3b82f6 !important;
+        }
+        .badge-pm {
+            color: #059669 !important;
+            border-color: #10b981 !important;
+        }
+    }
     @media (max-width: 480px) {
-        .badge { font-size: 0.72rem; padding: 4px 9px; }
+        .badge { font-size: 0.65rem; padding: 3px 8px; }
     }
 
     /* ── Capability cards ─────────────────────────────── */
@@ -361,7 +428,41 @@ st.markdown(
     .cap-card-icon { font-size: 1.4rem; margin-bottom: 0.5rem; }
     .cap-card-title { font-size: 0.875rem; font-weight: 600; color: #1e293b; margin-bottom: 0.3rem; }
     .cap-card-body { font-size: 0.82rem; color: #64748b; line-height: 1.6; }
-    @media (max-width: 580px) { .cap-grid { flex-direction: column; } }
+    @media (max-width: 768px) {
+        .cap-grid {
+            flex-direction: column;
+            gap: 0.75rem;
+            margin: 1rem 0.5rem 0;
+        }
+        .cap-card {
+            padding: 1rem 1.125rem;
+            border-radius: 12px;
+            background: #ffffff !important;
+            border-color: #e2e8f0 !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        }
+        .cap-card-icon { font-size: 1.25rem; }
+        .cap-card-title {
+            font-size: 0.8rem;
+            color: #1e293b !important;
+            margin-bottom: 0.4rem;
+        }
+        .cap-card-body {
+            font-size: 0.75rem;
+            color: #64748b !important;
+            line-height: 1.5;
+        }
+    }
+    @media (max-width: 480px) {
+        .cap-grid { margin: 0.75rem 0.25rem 0; gap: 0.5rem; }
+        .cap-card {
+            padding: 0.875rem 1rem;
+            border-radius: 10px;
+        }
+        .cap-card-icon { font-size: 1.1rem; }
+        .cap-card-title { font-size: 0.75rem; }
+        .cap-card-body { font-size: 0.7rem; }
+    }
 
     /* ── Section label ────────────────────────────────── */
     .section-label {
@@ -382,9 +483,33 @@ st.markdown(
         box-shadow: 0 4px 12px rgba(59,130,246,0.1);
         transform: translateY(-1px); color: #1d4ed8;
     }
-    @media (max-width: 580px) {
+    @media (max-width: 768px) {
         div[data-testid="column"] .stButton > button {
-            min-height: 56px; font-size: 0.82rem; padding: 0.75rem 0.875rem;
+            min-height: 60px;
+            font-size: 0.8rem;
+            padding: 0.75rem 0.875rem;
+            background: #ffffff !important;
+            border: 1.5px solid #e2e8f0 !important;
+            color: #334155 !important;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+            /* Better touch target */
+            min-width: 44px;
+            margin-bottom: 0.5rem;
+        }
+        div[data-testid="column"] .stButton > button:active {
+            background: #f1f5f9 !important;
+            border-color: #3b82f6 !important;
+            transform: scale(0.98);
+        }
+    }
+    @media (max-width: 480px) {
+        div[data-testid="column"] .stButton > button {
+            min-height: 54px;
+            font-size: 0.75rem;
+            padding: 0.625rem 0.75rem;
+            line-height: 1.4;
+            border-radius: 8px;
         }
     }
 
@@ -397,9 +522,32 @@ st.markdown(
     [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {
         background: #eff6ff; border-color: #bfdbfe;
     }
-    @media (max-width: 640px) {
+    @media (max-width: 768px) {
         [data-testid="stChatMessage"] {
-            padding: 0.875rem 0.875rem !important; border-radius: 12px;
+            background: #ffffff !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 12px;
+            padding: 0.75rem 0.875rem !important;
+            margin: 0 0.25rem 0.5rem 0.25rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {
+            background: #f8fafc !important;
+            border-color: #cbd5e1 !important;
+        }
+        /* Force text colors on mobile */
+        [data-testid="stChatMessage"] * {
+            color: #1e293b !important;
+        }
+        [data-testid="stChatMessage"] a {
+            color: #2563eb !important;
+        }
+    }
+    @media (max-width: 480px) {
+        [data-testid="stChatMessage"] {
+            padding: 0.625rem 0.75rem !important;
+            margin: 0 0.125rem 0.375rem 0.125rem;
+            border-radius: 10px;
         }
     }
 
@@ -412,7 +560,28 @@ st.markdown(
         font-size: 1.05rem; font-weight: 700; color: #0f172a;
         letter-spacing: -0.015em; margin-right: 0.25rem;
     }
-    @media (max-width: 480px) { .compact-title { font-size: 0.95rem; } }
+    @media (max-width: 768px) {
+        .compact-header {
+            padding: 0.5rem 0.5rem 0.75rem;
+            background: #ffffff;
+            border-radius: 10px;
+            margin: 0.25rem 0.25rem 0.75rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            border: 1px solid #e2e8f0;
+            gap: 0.5rem;
+        }
+        .compact-title {
+            font-size: 0.9rem;
+            color: #1e293b !important;
+        }
+    }
+    @media (max-width: 480px) {
+        .compact-header {
+            padding: 0.375rem 0.5rem 0.5rem;
+            margin: 0.125rem 0.125rem 0.5rem;
+        }
+        .compact-title { font-size: 0.85rem; }
+    }
 
     /* ── Tables in chat ───────────────────────────────── */
     [data-testid="stChatMessage"] table {
@@ -443,6 +612,54 @@ st.markdown(
     /* ── Sidebar ──────────────────────────────────────── */
     [data-testid="stSidebar"] { background: #ffffff; border-right: 1px solid #e8ecf0; }
 
+    @media (max-width: 768px) {
+        [data-testid="stSidebar"] {
+            background: #f8fafc !important;
+            border-right: 1px solid #e2e8f0 !important;
+        }
+        [data-testid="stSidebar"] * {
+            color: #1e293b !important;
+        }
+        [data-testid="stSidebar"] .stMarkdown h2 {
+            color: #1e293b !important;
+            font-size: 1rem !important;
+        }
+        [data-testid="stSidebar"] .stButton > button {
+            background: #ffffff !important;
+            color: #374151 !important;
+            border: 1px solid #d1d5db !important;
+            font-size: 0.8rem !important;
+        }
+        [data-testid="stSidebar"] .stDownloadButton > button {
+            background: #3b82f6 !important;
+            color: #ffffff !important;
+            border: none !important;
+        }
+    }
+
+    /* ── Mobile Input Enhancements ────────────────────── */
+    @media (max-width: 768px) {
+        [data-testid="stChatInput"] {
+            background: #ffffff !important;
+            border-radius: 12px !important;
+            border: 1.5px solid #d1d5db !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
+        }
+        [data-testid="stChatInput"] input {
+            color: #1e293b !important;
+            font-size: 0.9rem !important;
+            padding: 0.75rem !important;
+        }
+        [data-testid="stChatInput"] input::placeholder {
+            color: #6b7280 !important;
+        }
+        /* Chat input container */
+        [data-testid="stChatInputContainer"] {
+            background: #f8fafc !important;
+            padding: 0.75rem 0.5rem !important;
+        }
+    }
+
     /* ── Source pills ─────────────────────────────────── */
     .source-pill {
         display: inline-flex; align-items: center;
@@ -451,6 +668,52 @@ st.markdown(
     }
     .pill-ct { background: #dbeafe; color: #1d4ed8; border: 1px solid #bfdbfe; }
     .pill-pm { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+
+    /* ── Mobile Status & Expanders ─────────────────────── */
+    @media (max-width: 768px) {
+        .source-pill {
+            background: #ffffff !important;
+            border: 1px solid !important;
+            font-size: 0.65rem;
+            padding: 2px 8px;
+        }
+        .pill-ct {
+            color: #1e40af !important;
+            border-color: #3b82f6 !important;
+        }
+        .pill-pm {
+            color: #059669 !important;
+            border-color: #10b981 !important;
+        }
+
+        /* Expander improvements */
+        [data-testid="stExpander"] {
+            background: #f8fafc !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 8px !important;
+        }
+        [data-testid="stExpander"] summary {
+            background: #ffffff !important;
+            color: #374151 !important;
+            font-size: 0.8rem !important;
+            padding: 0.5rem !important;
+        }
+        [data-testid="stExpander"] div {
+            background: #f8fafc !important;
+            color: #4b5563 !important;
+        }
+
+        /* Status indicators */
+        [data-testid="stStatus"] {
+            background: #ffffff !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 8px !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+        }
+        [data-testid="stStatus"] * {
+            color: #374151 !important;
+        }
+    }
     </style>
     """,
     unsafe_allow_html=True,
