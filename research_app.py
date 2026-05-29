@@ -493,6 +493,14 @@ if "queued_prompt" not in st.session_state:
 if "example_questions" not in st.session_state:
     st.session_state.example_questions = random.sample(_QUESTION_POOL, 4)
 
+# Scroll to top on fresh page load / refresh only (not on every rerun)
+if "page_loaded" not in st.session_state:
+    st.session_state.page_loaded = True
+    st.components.v1.html(
+        "<script>window.parent.scrollTo({top:0,behavior:'instant'});</script>",
+        height=0,
+    )
+
 # Play done chime on the rerun that follows agent completion
 if st.session_state.pop("play_done_sound", False):
     _play(_SOUND_DONE)
