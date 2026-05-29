@@ -138,6 +138,24 @@ def _source_badge(tool_name: str) -> str:
     return "🔧"
 
 
+def _is_ct_tool(name: str) -> bool:
+    return any(k in name.lower() for k in _CT_KEYWORDS)
+
+
+def _render_sources(sources):
+    ct = sorted(i for t, i in sources if t == "ct")
+    pm = sorted(i for t, i in sources if t == "pm")
+    with st.expander(f"📎 {len(sources)} source(s)", expanded=False):
+        if ct:
+            st.markdown("**🏥 ClinicalTrials.gov**")
+            for nct in ct:
+                st.markdown(f"- [{nct}](https://clinicaltrials.gov/study/{nct})")
+        if pm:
+            st.markdown("**📚 PubMed**")
+            for pmid in pm:
+                st.markdown(f"- [PMID {pmid}](https://pubmed.ncbi.nlm.nih.gov/{pmid}/)")
+
+
 def _md_to_html_body(text: str) -> str:
     t = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     # Headers
@@ -810,7 +828,7 @@ with st.sidebar:
     st.markdown("## 🧬 Clinical Research Intelligence")
     st.divider()
 
-    ct_tools = [t for t in all_tools if any(k in t.name.lower() for k in _CT_KEYWORDS)]
+    ct_tools = [t for t in all_tools if _is_ct_tool(t.name)]
     pm_tools = [t for t in all_tools if t not in ct_tools]
 
     st.markdown("**Connected sources**")
@@ -920,9 +938,9 @@ else:
             if item.get("tools_used"):
                 tool_sources = set()
                 for t in item["tools_used"]:
-                    if any(k in t.lower() for k in _CT_KEYWORDS):
+                    if _is_ct_tool(t):
                         tool_sources.add("ct")
-                    elif any(k in t.lower() for k in _PM_KEYWORDS):
+                    else:
                         tool_sources.add("pm")
 
                 label = {
@@ -938,17 +956,7 @@ else:
             st.markdown(item["content"])
 
             if item.get("sources"):
-                ct_hist = sorted(i for t, i in item["sources"] if t == "ct")
-                pm_hist = sorted(i for t, i in item["sources"] if t == "pm")
-                with st.expander(f"📎 {len(item['sources'])} source(s)", expanded=False):
-                    if ct_hist:
-                        st.markdown("**🏥 ClinicalTrials.gov**")
-                        for nct in ct_hist:
-                            st.markdown(f"- [{nct}](https://clinicaltrials.gov/study/{nct})")
-                    if pm_hist:
-                        st.markdown("**📚 PubMed**")
-                        for pmid in pm_hist:
-                            st.markdown(f"- [PMID {pmid}](https://pubmed.ncbi.nlm.nih.gov/{pmid}/)")
+                _render_sources(item["sources"])
 
             if item["role"] == "assistant" and item.get("content"):
                 _copy_button(item["content"], f"hist_{item_idx}")
@@ -978,17 +986,7 @@ if prompt:
             st.error("Agent returned no response. Please try again.")
 
         if sources:
-            ct_sources = sorted(i for t, i in sources if t == "ct")
-            pm_sources = sorted(i for t, i in sources if t == "pm")
-            with st.expander(f"📎 {len(sources)} source(s)", expanded=False):
-                if ct_sources:
-                    st.markdown("**🏥 ClinicalTrials.gov**")
-                    for nct in ct_sources:
-                        st.markdown(f"- [{nct}](https://clinicaltrials.gov/study/{nct})")
-                if pm_sources:
-                    st.markdown("**📚 PubMed**")
-                    for pmid in pm_sources:
-                        st.markdown(f"- [PMID {pmid}](https://pubmed.ncbi.nlm.nih.gov/{pmid}/)")
+            _render_sources(sources)
 
     if result or full_response:
         if result:
