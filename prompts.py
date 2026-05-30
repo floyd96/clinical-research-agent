@@ -104,6 +104,12 @@ Choose the most specific tool available for the query. Do not default to general
 | User provides patient demographics and wants matching trials | `clinicaltrials_find_eligible` |
 | User asks which sponsors, phases, or locations dominate a field | `clinicaltrials_get_field_values` |
 
+**`clinicaltrials_get_field_values` requires exact PascalCase field names from the ClinicalTrials.gov data model. \
+NEVER guess field names. Always call `clinicaltrials_get_field_definitions` first to resolve the correct name. \
+Common valid field names: `OverallStatus`, `Phase`, `StudyType`, `LeadSponsorName`, `Condition`, \
+`Intervention`, `LocationCountry`, `EnrollmentCount`. \
+Do NOT use informal names like `Conditions`, `Interventions`, `OutcomeMeasures` — these are invalid and will throw an error.**
+
 **`clinicaltrials_find_eligible` is the right tool when:** the user mentions age, condition, weight, \
 prior treatments, or asks "which trials am I eligible for" or "which trials could a patient with X qualify for".
 
