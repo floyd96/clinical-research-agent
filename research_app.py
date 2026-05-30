@@ -242,7 +242,15 @@ def run_agent(messages, status_container, response_placeholder):
 st.set_page_config(page_title=PAGE_TITLE, page_icon=PAGE_ICON, layout="wide")
 
 # ── Authentication gate ────────────────────────────────────────────────────────
-if not getattr(st.user, "is_logged_in", False):
+# Cache identity into session_state when st.user is live (first rerun after OAuth).
+# st_javascript reruns on Streamlit Cloud do not carry the auth cookie, so
+# is_logged_in flips to False on those reruns. _auth_ok persists through them.
+if getattr(st.user, "is_logged_in", False):
+    st.session_state._auth_ok    = True
+    st.session_state._auth_email = getattr(st.user, "email", "") or ""
+    st.session_state._auth_name  = getattr(st.user, "name",  None)
+
+if not st.session_state.get("_auth_ok", False):
     _, col_c, _ = st.columns([1, 2, 1])
     with col_c:
         st.markdown(
@@ -257,7 +265,7 @@ if not getattr(st.user, "is_logged_in", False):
             st.login("google")
     st.stop()
 
-_user_email = getattr(st.user, "email", "") or ""
+_user_email = st.session_state.get("_auth_email", "")
 if _user_email.lower() not in [e.lower() for e in BETA_WHITELIST]:
     st.error(AUTH_DENIED_MSG)
     if st.button("Sign out"):
@@ -294,8 +302,8 @@ if "db_initialized"    not in st.session_state:
 # ── DB init (once per Streamlit session, after auth gate passes) ──────────────
 if not st.session_state.db_initialized:
     _uid = upsert_user(
-        email=getattr(st.user, "email", "") or "",
-        display_name=getattr(st.user, "name", None),
+        email=st.session_state.get("_auth_email", ""),
+        display_name=st.session_state.get("_auth_name"),
     )
     st.session_state.db_user_id    = _uid
     st.session_state.db_session_id = create_session(_uid)
@@ -306,7 +314,7 @@ if not st.session_state.db_initialized:
 
 _js_hour = st_javascript("new Date().getHours() + 1")
 _hour = (int(_js_hour) - 1) if isinstance(_js_hour, (int, float)) and 1 <= _js_hour <= 24 else datetime.now().hour
-_first_name = (getattr(st.user, "name", None) or getattr(st.user, "email", "") or "").split()[0]
+_first_name = (st.session_state.get("_auth_name") or st.session_state.get("_auth_email") or "").split()[0]
 _greeting = f"Good {'morning' if _hour < 12 else 'afternoon' if _hour < 17 else 'evening'}, {_first_name}."
 
 # ── Restore history: DB primary, localStorage fallback ────────────────────────
@@ -352,7 +360,7 @@ if st.session_state.pop("clear_storage", False):
     clear_session_storage()
 
 st.components.v1.html(INIT_PARENT, height=0)
-st.components.v1.html(get_ribbon_js(user_display=getattr(st.user, "email", "")), height=0)
+st.components.v1.html(get_ribbon_js(user_display=st.session_state.get("_auth_email", "")), height=0)
 
 if st.session_state.pop("play_done_sound", False):
     play(SOUND_DONE)
@@ -427,7 +435,7 @@ with st.sidebar:
     st.divider()
     col_u, col_o = st.columns([3, 1])
     with col_u:
-        st.caption(f"Signed in as {getattr(st.user, 'email', '')}")
+        st.caption(f"Signed in as {st.session_state.get('_auth_email', '')}")
     with col_o:
         if st.button("Sign out", use_container_width=True):
             st.logout()
