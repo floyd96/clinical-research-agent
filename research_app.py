@@ -241,15 +241,10 @@ if "session_restored"  not in st.session_state:
     st.session_state.session_restored  = False
 
 # ── Browser-local hour for greeting (avoids server UTC mismatch on prod) ──────
+# +1 shifts range to 1-24 so 0 (st_javascript loading placeholder) is unambiguous
 
-if "client_hour" not in st.session_state:
-    _js_hour = st_javascript("new Date().getHours()")
-    if isinstance(_js_hour, (int, float)) and 0 <= _js_hour <= 23:
-        st.session_state.client_hour = int(_js_hour)
-    else:
-        st.session_state.client_hour = datetime.now().hour
-
-_hour = st.session_state.client_hour
+_js_hour = st_javascript("new Date().getHours() + 1")
+_hour = (int(_js_hour) - 1) if isinstance(_js_hour, (int, float)) and 1 <= _js_hour <= 24 else datetime.now().hour
 _greeting = f"Good {'morning' if _hour < 12 else 'afternoon' if _hour < 17 else 'evening'}."
 
 # ── Restore history from localStorage ─────────────────────────────────────────
