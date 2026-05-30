@@ -227,9 +227,6 @@ st.markdown(get_css(), unsafe_allow_html=True)
 
 agent, all_tools = get_agent()
 
-_hour = datetime.now().hour
-_greeting = f"Good {'morning' if _hour < 12 else 'afternoon' if _hour < 17 else 'evening'}."
-
 # ── Session state ──────────────────────────────────────────────────────────────
 
 if "lc_messages"       not in st.session_state:
@@ -242,6 +239,18 @@ if "example_questions" not in st.session_state:
     st.session_state.example_questions = random.sample(QUESTION_POOL, 4)
 if "session_restored"  not in st.session_state:
     st.session_state.session_restored  = False
+
+# ── Browser-local hour for greeting (avoids server UTC mismatch on prod) ──────
+
+if "client_hour" not in st.session_state:
+    _js_hour = st_javascript("new Date().getHours()")
+    if isinstance(_js_hour, (int, float)) and 0 <= _js_hour <= 23:
+        st.session_state.client_hour = int(_js_hour)
+    else:
+        st.session_state.client_hour = datetime.now().hour
+
+_hour = st.session_state.client_hour
+_greeting = f"Good {'morning' if _hour < 12 else 'afternoon' if _hour < 17 else 'evening'}."
 
 # ── Restore history from localStorage ─────────────────────────────────────────
 
