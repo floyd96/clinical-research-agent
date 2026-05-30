@@ -62,17 +62,17 @@ def get_css() -> str:
     [data-testid="stMainBlockContainer"] {{
         max-width: 840px;
         margin: 0 auto;
-        padding: 1.5rem 2rem 6rem;
+        padding: 4.5rem 2rem 6rem;
     }}
     @media (max-width: 768px) {{
         [data-testid="stMainBlockContainer"] {{
-            padding: 3rem 0.5rem 4rem;
+            padding: 4.5rem 0.5rem 4rem;
             max-width: 100%;
         }}
     }}
     @media (max-width: 480px) {{
         [data-testid="stMainBlockContainer"] {{
-            padding: 2.75rem 0.25rem 4rem;
+            padding: 4rem 0.25rem 4rem;
         }}
     }}
 
@@ -428,6 +428,30 @@ def get_css() -> str:
         border-left: 2px solid {COLOR_BORDER};
         margin: 0.15rem 0;
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }}
+
+    /* ── Sidebar toggle button — must clear the 52px ribbon ──────────────── */
+    [data-testid="stSidebarCollapsedControl"] {{
+        top: 58px !important;
+        z-index: 10001 !important;
+    }}
+
+    /* ── Compact sidebar buttons (Past Sessions list) ─────────────────────── */
+    [data-testid="stSidebar"] .stButton > button {{
+        font-size: 0.78rem !important;
+        padding: 0.3rem 0.65rem !important;
+        min-height: 32px !important;
+        height: auto !important;
+        text-align: left !important;
+        white-space: normal !important;
+        line-height: 1.3 !important;
+        border-radius: 6px !important;
+    }}
+
+    /* ── Sidebar scrollable if content overflows ──────────────────────────── */
+    [data-testid="stSidebarContent"] {{
+        overflow-y: auto !important;
+        padding-bottom: 2rem !important;
     }}
     </style>
     """

@@ -12,10 +12,10 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from config import (
     CLINICALTRIALS_MCP_URL, PUBMED_MCP_URL,
     PAGE_TITLE, PAGE_ICON,
-    BRAND_TAGLINE, COLOR_PRIMARY,
+    BRAND_NAME, BRAND_TAGLINE, COLOR_PRIMARY,
     CHAT_PLACEHOLDER, STATUS_RETRIEVING, SECTION_SUGGESTIONS,
     EXPORT_BUTTON_LABEL, CLEAR_BUTTON_LABEL, EXPORT_PDF_TIP,
-    SIDEBAR_SOURCES_HDR, SIDEBAR_HISTORY_HDR, SIDEBAR_RETRIEVED_HDR,
+    SIDEBAR_SOURCES_HDR, SIDEBAR_RETRIEVED_HDR,
     BETA_WHITELIST, AUTH_LOGIN_SUBTITLE, AUTH_DENIED_MSG,
 )
 from db import (
@@ -31,7 +31,6 @@ from ui.styles import get_css
 from ui.components import (
     SOUND_SEND, SOUND_DONE, INIT_PARENT,
     SCROLL_BTN_SHOW, SCROLL_BTN_HIDE,
-    get_ribbon_js,
     play, copy_button, render_feedback_buttons, render_sources,
     save_session, clear_session_storage,
     build_html_export,
@@ -421,7 +420,13 @@ if st.session_state.pop("clear_storage", False):
     clear_session_storage()
 
 st.components.v1.html(INIT_PARENT, height=0)
-st.components.v1.html(get_ribbon_js(user_display=st.session_state.get("_auth_email", "")), height=0)
+st.markdown(
+    f'<div class="ent-ribbon">'
+    f'<div class="ent-ribbon-left"><span class="ent-brand">{BRAND_NAME}</span></div>'
+    f'<span class="ent-ribbon-right">{st.session_state.get("_auth_email", "")}</span>'
+    f'</div>',
+    unsafe_allow_html=True,
+)
 
 if st.session_state.pop("play_done_sound", False):
     play(SOUND_DONE)
@@ -429,78 +434,24 @@ if st.session_state.pop("play_done_sound", False):
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 
 with st.sidebar:
-    ct_tools = [t for t in all_tools if _is_ct_tool(t.name)]
-    pm_tools = [t for t in all_tools if t not in ct_tools]
-
-    # ── Past sessions ──────────────────────────────────────────────────────────
-    _past_sessions = load_recent_sessions(st.session_state.db_user_id, limit=8)
-    if _past_sessions:
-        st.markdown("**Past Sessions**")
-        for _s in _past_sessions:
-            _title      = _s.get("title") or "New conversation"
-            _label      = (_title[:42] + "…") if len(_title) > 42 else _title
-            _is_current = _s["id"] == st.session_state.db_session_id
-            _btn_label  = f"▶ {_label}" if _is_current else _label
-            if st.button(_btn_label, key=f"sess_{_s['id'][:8]}",
-                         use_container_width=True, disabled=_is_current):
-                st.session_state.db_session_id    = _s["id"]
-                st.session_state.message_ids      = {}
-                st.session_state.feedback_given   = {}
-                st.session_state.lc_messages      = []
-                st.session_state.chat_display     = []
-                st.session_state.session_restored = False
-                st.session_state._save_session_id = True
-                st.rerun()
-        st.divider()
-
-    st.markdown(f"**{SIDEBAR_SOURCES_HDR}**")
-    st.markdown(
-        '<div style="font-size:0.82rem;color:#334155;line-height:1.7;">'
-        '🏥 <a href="https://clinicaltrials.gov" target="_blank" style="color:#1F497D;text-decoration:none;">ClinicalTrials.gov</a><br>'
-        '📚 <a href="https://pubmed.ncbi.nlm.nih.gov" target="_blank" style="color:#1a5f6e;text-decoration:none;">PubMed / EuropePMC</a>'
-        '</div>',
-        unsafe_allow_html=True,
-    )
+    # ── User identity + sign out ───────────────────────────────────────────────
+    col_u, col_o = st.columns([3, 1])
+    with col_u:
+        st.caption(f"👤 {st.session_state.get('_auth_email', '')}")
+    with col_o:
+        if st.button("Sign out", use_container_width=True):
+            st.components.v1.html(
+                "<script>try{var p=window.parent||window;"
+                "p.localStorage.setItem('cri_signed_out','1');"
+                "p.localStorage.removeItem('cri_auth');"
+                "p.localStorage.removeItem('cri_session_id');}catch(e){}</script>",
+                height=0,
+            )
+            st.logout()
 
     st.divider()
 
-    user_queries = [m["content"] for m in st.session_state.chat_display if m["role"] == "user"]
-    if user_queries:
-        st.markdown(f"**{SIDEBAR_HISTORY_HDR}** · {len(user_queries)}")
-        for q in user_queries[-5:]:
-            label = q[:52] + "…" if len(q) > 52 else q
-            st.markdown(f'<div class="hist-item">{label}</div>', unsafe_allow_html=True)
-        st.divider()
-
-    session_nct, session_pm = [], []
-    for m in st.session_state.chat_display:
-        if m["role"] == "assistant":
-            for src_type, src_id in m.get("sources", []):
-                if src_type == "ct" and src_id not in session_nct:
-                    session_nct.append(src_id)
-                elif src_type == "pm" and src_id not in session_pm:
-                    session_pm.append(src_id)
-    if session_nct or session_pm:
-        st.markdown(f"**{SIDEBAR_RETRIEVED_HDR}**")
-        for nct in session_nct[:5]:
-            st.markdown(f"🏥 [{nct}](https://clinicaltrials.gov/study/{nct})")
-        for pmid in session_pm[:5]:
-            st.markdown(f"📚 [PMID {pmid}](https://pubmed.ncbi.nlm.nih.gov/{pmid}/)")
-        st.divider()
-
-    has_chat = bool(st.session_state.chat_display)
-    st.download_button(
-        label=EXPORT_BUTTON_LABEL,
-        data=build_html_export(st.session_state.chat_display) if has_chat else " ",
-        file_name=f"mayo_research_session_{datetime.now().strftime('%Y%m%d')}.html",
-        mime="text/html",
-        use_container_width=True,
-        disabled=not has_chat,
-    )
-    if has_chat:
-        st.caption(EXPORT_PDF_TIP)
-
-    st.divider()
+    # ── New session ────────────────────────────────────────────────────────────
     if st.button(CLEAR_BUTTON_LABEL, use_container_width=True):
         if st.session_state.db_session_id:
             close_session(st.session_state.db_session_id)
@@ -515,28 +466,79 @@ with st.sidebar:
         st.session_state.clear_storage     = True
         st.rerun()
 
-    st.divider()
-    col_u, col_o = st.columns([3, 1])
-    with col_u:
-        st.caption(f"Signed in as {st.session_state.get('_auth_email', '')}")
-    with col_o:
-        if st.button("Sign out", use_container_width=True):
-            st.components.v1.html(
-                "<script>try{var p=window.parent||window;"
-                "p.localStorage.setItem('cri_signed_out','1');"
-                "p.localStorage.removeItem('cri_auth');}catch(e){}</script>",
-                height=0,
-            )
-            st.logout()
+    # ── Past sessions ──────────────────────────────────────────────────────────
+    _past_sessions = load_recent_sessions(st.session_state.db_user_id, limit=5)
+    if _past_sessions:
+        st.markdown(
+            '<div style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;'
+            'text-transform:uppercase;color:#94a3b8;margin:0.75rem 0 0.25rem;">Past Sessions</div>',
+            unsafe_allow_html=True,
+        )
+        for _s in _past_sessions:
+            _title      = _s.get("title") or "New conversation"
+            _label      = (_title[:38] + "…") if len(_title) > 38 else _title
+            _is_current = _s["id"] == st.session_state.db_session_id
+            _btn_label  = f"▶ {_label}" if _is_current else _label
+            if st.button(_btn_label, key=f"sess_{_s['id'][:8]}",
+                         use_container_width=True, disabled=_is_current):
+                st.session_state.db_session_id    = _s["id"]
+                st.session_state.message_ids      = {}
+                st.session_state.feedback_given   = {}
+                st.session_state.lc_messages      = []
+                st.session_state.chat_display     = []
+                st.session_state.session_restored = False
+                st.session_state._save_session_id = True
+                st.rerun()
 
+    st.divider()
+
+    # ── Data sources ───────────────────────────────────────────────────────────
+    st.markdown(f"**{SIDEBAR_SOURCES_HDR}**")
+    st.markdown(
+        '<div style="font-size:0.82rem;color:#334155;line-height:1.7;">'
+        '🏥 <a href="https://clinicaltrials.gov" target="_blank" style="color:#1F497D;text-decoration:none;">ClinicalTrials.gov</a><br>'
+        '📚 <a href="https://pubmed.ncbi.nlm.nih.gov" target="_blank" style="color:#1a5f6e;text-decoration:none;">PubMed / EuropePMC</a>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    # ── Retrieved sources (current session, conditional) ──────────────────────
+    session_nct, session_pm = [], []
+    for m in st.session_state.chat_display:
+        if m["role"] == "assistant":
+            for src_type, src_id in m.get("sources", []):
+                if src_type == "ct" and src_id not in session_nct:
+                    session_nct.append(src_id)
+                elif src_type == "pm" and src_id not in session_pm:
+                    session_pm.append(src_id)
+    if session_nct or session_pm:
+        st.divider()
+        st.markdown(f"**{SIDEBAR_RETRIEVED_HDR}**")
+        for nct in session_nct[:5]:
+            st.markdown(f"🏥 [{nct}](https://clinicaltrials.gov/study/{nct})")
+        for pmid in session_pm[:5]:
+            st.markdown(f"📚 [PMID {pmid}](https://pubmed.ncbi.nlm.nih.gov/{pmid}/)")
+
+    # ── Export (conditional) ───────────────────────────────────────────────────
+    has_chat = bool(st.session_state.chat_display)
+    if has_chat:
+        st.divider()
+        st.download_button(
+            label=EXPORT_BUTTON_LABEL,
+            data=build_html_export(st.session_state.chat_display),
+            file_name=f"mayo_research_session_{datetime.now().strftime('%Y%m%d')}.html",
+            mime="text/html",
+            use_container_width=True,
+        )
+        st.caption(EXPORT_PDF_TIP)
+
+    # ── Footer ─────────────────────────────────────────────────────────────────
     st.markdown(
         '<div style="margin-top:1.5rem;padding-top:0.75rem;border-top:1px solid #e8e5e0;'
         'font-size:0.72rem;color:#94a3b8;line-height:2;">'
         '<a href="#" style="color:#94a3b8;text-decoration:none;">Privacy</a>'
         ' &nbsp;·&nbsp; '
         '<a href="#" style="color:#94a3b8;text-decoration:none;">Help</a>'
-        ' &nbsp;·&nbsp; '
-        '<a href="#" style="color:#94a3b8;text-decoration:none;">Trial matching guidance</a>'
         '</div>',
         unsafe_allow_html=True,
     )
