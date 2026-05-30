@@ -20,7 +20,7 @@ from config import (
 )
 from db import (
     upsert_user, create_session, close_session, set_session_title,
-    save_message, load_session_messages,
+    save_message, load_session_messages, load_recent_sessions,
     load_session_feedback,
 )
 from prompts import SYSTEM_PROMPT
@@ -250,27 +250,38 @@ if getattr(st.user, "is_logged_in", False):
     st.session_state._auth_name  = getattr(st.user, "name",  None)
     st.session_state._save_auth  = True
 
-# Restore auth from localStorage on page reload.
-# Also clears both keys if cri_signed_out is set (ensures logout is clean).
+# Restore auth + session_id from localStorage on page reload.
+# Single st_javascript call returns both, avoiding a double rerun.
+# Also clears all keys if cri_signed_out is set (ensures logout is clean).
 if not st.session_state.get("_auth_ok", False):
-    _stored_auth = st_javascript(
+    _ls_raw = st_javascript(
         "(function(){try{"
         "var p=window.parent||window;"
         "if(p.localStorage.getItem('cri_signed_out')){"
         "p.localStorage.removeItem('cri_signed_out');"
         "p.localStorage.removeItem('cri_auth');"
+        "p.localStorage.removeItem('cri_session_id');"
         "return 'null';}"
-        "return p.localStorage.getItem('cri_auth')||'null';"
+        "return JSON.stringify({"
+        "auth:p.localStorage.getItem('cri_auth')||'null',"
+        "sid:p.localStorage.getItem('cri_session_id')||''"
+        "});"
         "}catch(e){return 'null';}})()"
     )
-    if isinstance(_stored_auth, str) and _stored_auth not in ("null", "undefined", "", "0"):
+    if isinstance(_ls_raw, str) and _ls_raw not in ("null", "0", "", "undefined"):
         try:
-            _stored = json.loads(_stored_auth)
-            if _stored.get("email"):
-                st.session_state._auth_ok    = True
-                st.session_state._auth_email = _stored["email"]
-                st.session_state._auth_name  = _stored.get("name", "")
-                st.rerun()
+            _ls_data  = json.loads(_ls_raw)
+            _auth_str = _ls_data.get("auth", "null")
+            _sid_str  = _ls_data.get("sid", "")
+            if _auth_str and _auth_str != "null":
+                _stored = json.loads(_auth_str)
+                if _stored.get("email"):
+                    st.session_state._auth_ok    = True
+                    st.session_state._auth_email = _stored["email"]
+                    st.session_state._auth_name  = _stored.get("name", "")
+                    if _sid_str:
+                        st.session_state._restored_session_id = _sid_str
+                    st.rerun()
         except Exception:
             pass
 
@@ -296,7 +307,8 @@ if _user_email.lower() not in [e.lower() for e in BETA_WHITELIST]:
         st.components.v1.html(
             "<script>try{var p=window.parent||window;"
             "p.localStorage.setItem('cri_signed_out','1');"
-            "p.localStorage.removeItem('cri_auth');}catch(e){}</script>",
+            "p.localStorage.removeItem('cri_auth');"
+            "p.localStorage.removeItem('cri_session_id');}catch(e){}</script>",
             height=0,
         )
         st.logout()
@@ -312,6 +324,14 @@ if st.session_state.pop("_save_auth", False):
     })
     st.components.v1.html(
         f'<script>try{{(window.parent||window).localStorage.setItem("cri_auth",{json.dumps(_auth_payload)});}}catch(e){{}}</script>',
+        height=0,
+    )
+
+# Persist session_id to localStorage whenever a new session is created or switched
+if st.session_state.pop("_save_session_id", False):
+    st.components.v1.html(
+        f'<script>try{{(window.parent||window).localStorage.setItem("cri_session_id",'
+        f'{json.dumps(st.session_state.db_session_id)});}}catch(e){{}}</script>',
         height=0,
     )
 
@@ -346,8 +366,15 @@ if not st.session_state.db_initialized:
         email=st.session_state.get("_auth_email", ""),
         display_name=st.session_state.get("_auth_name"),
     )
-    st.session_state.db_user_id    = _uid
-    st.session_state.db_session_id = create_session(_uid)
+    st.session_state.db_user_id = _uid
+
+    _restored_sid = st.session_state.pop("_restored_session_id", None)
+    if _restored_sid:
+        st.session_state.db_session_id = _restored_sid
+    else:
+        st.session_state.db_session_id  = create_session(_uid)
+        st.session_state._save_session_id = True
+
     st.session_state.db_initialized = True
 
 # ── Browser-local hour for greeting ───────────────────────────────────────────
@@ -405,6 +432,27 @@ with st.sidebar:
     ct_tools = [t for t in all_tools if _is_ct_tool(t.name)]
     pm_tools = [t for t in all_tools if t not in ct_tools]
 
+    # ── Past sessions ──────────────────────────────────────────────────────────
+    _past_sessions = load_recent_sessions(st.session_state.db_user_id, limit=8)
+    if _past_sessions:
+        st.markdown("**Past Sessions**")
+        for _s in _past_sessions:
+            _title      = _s.get("title") or "New conversation"
+            _label      = (_title[:42] + "…") if len(_title) > 42 else _title
+            _is_current = _s["id"] == st.session_state.db_session_id
+            _btn_label  = f"▶ {_label}" if _is_current else _label
+            if st.button(_btn_label, key=f"sess_{_s['id'][:8]}",
+                         use_container_width=True, disabled=_is_current):
+                st.session_state.db_session_id    = _s["id"]
+                st.session_state.message_ids      = {}
+                st.session_state.feedback_given   = {}
+                st.session_state.lc_messages      = []
+                st.session_state.chat_display     = []
+                st.session_state.session_restored = False
+                st.session_state._save_session_id = True
+                st.rerun()
+        st.divider()
+
     st.markdown(f"**{SIDEBAR_SOURCES_HDR}**")
     st.markdown(
         '<div style="font-size:0.82rem;color:#334155;line-height:1.7;">'
@@ -457,6 +505,7 @@ with st.sidebar:
         if st.session_state.db_session_id:
             close_session(st.session_state.db_session_id)
         st.session_state.db_session_id     = create_session(st.session_state.db_user_id)
+        st.session_state._save_session_id  = True
         st.session_state.message_ids       = {}
         st.session_state.feedback_given    = {}
         st.session_state.lc_messages       = []
