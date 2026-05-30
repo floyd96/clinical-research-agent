@@ -280,12 +280,10 @@ with st.sidebar:
 
     st.markdown(f"**{SIDEBAR_SOURCES_HDR}**")
     st.markdown(
-        '<div class="src-status"><span class="src-dot">●</span>'
-        '<span class="src-name">ClinicalTrials.gov</span>'
-        '<span class="src-conn">● Connected</span></div>'
-        '<div class="src-status"><span class="src-dot">●</span>'
-        '<span class="src-name">PubMed</span>'
-        '<span class="src-conn">● Connected</span></div>',
+        '<div style="font-size:0.82rem;color:#334155;line-height:1.7;">'
+        '🏥 <a href="https://clinicaltrials.gov" target="_blank" style="color:#1F497D;text-decoration:none;">ClinicalTrials.gov</a><br>'
+        '📚 <a href="https://pubmed.ncbi.nlm.nih.gov" target="_blank" style="color:#1a5f6e;text-decoration:none;">PubMed / EuropePMC</a>'
+        '</div>',
         unsafe_allow_html=True,
     )
 
@@ -335,6 +333,18 @@ with st.sidebar:
         st.session_state.example_questions = random.sample(QUESTION_POOL, 4)
         st.session_state.clear_storage     = True
         st.rerun()
+
+    st.markdown(
+        '<div style="margin-top:1.5rem;padding-top:0.75rem;border-top:1px solid #e8e5e0;'
+        'font-size:0.72rem;color:#94a3b8;line-height:2;">'
+        '<a href="#" style="color:#94a3b8;text-decoration:none;">Privacy</a>'
+        ' &nbsp;·&nbsp; '
+        '<a href="#" style="color:#94a3b8;text-decoration:none;">Help</a>'
+        ' &nbsp;·&nbsp; '
+        '<a href="#" style="color:#94a3b8;text-decoration:none;">Trial matching guidance</a>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
 
 # ── Hero / compact header ──────────────────────────────────────────────────────
 
