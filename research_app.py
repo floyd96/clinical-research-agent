@@ -5,7 +5,6 @@ import re
 from datetime import datetime
 
 import streamlit as st
-from streamlit_javascript import st_javascript
 from langchain.agents import create_agent
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
@@ -16,7 +15,6 @@ from config import (
     CHAT_PLACEHOLDER, STATUS_RETRIEVING, SECTION_SUGGESTIONS,
     EXPORT_BUTTON_LABEL, CLEAR_BUTTON_LABEL, EXPORT_PDF_TIP,
     SIDEBAR_SOURCES_HDR, SIDEBAR_HISTORY_HDR, SIDEBAR_RETRIEVED_HDR,
-    LS_KEY,
     BETA_WHITELIST, AUTH_LOGIN_SUBTITLE, AUTH_DENIED_MSG,
 )
 from db import (
@@ -309,17 +307,12 @@ if not st.session_state.db_initialized:
     st.session_state.db_session_id = create_session(_uid)
     st.session_state.db_initialized = True
 
-# ── Browser-local hour for greeting (avoids server UTC mismatch on prod) ──────
-# +1 shifts range to 1-24 so 0 (st_javascript loading placeholder) is unambiguous
-
-_js_hour = st_javascript("new Date().getHours() + 1")
-_hour = (int(_js_hour) - 1) if isinstance(_js_hour, (int, float)) and 1 <= _js_hour <= 24 else datetime.now().hour
+# ── Server-side hour for greeting ─────────────────────────────────────────────
+_hour = datetime.now().hour
 _first_name = (st.session_state.get("_auth_name") or st.session_state.get("_auth_email") or "").split()[0]
 _greeting = f"Good {'morning' if _hour < 12 else 'afternoon' if _hour < 17 else 'evening'}, {_first_name}."
 
-# ── Restore history: DB primary, localStorage fallback ────────────────────────
-
-_ls_value = st_javascript(f"(window.parent||window).localStorage.getItem('{LS_KEY}') || 'null'")
+# ── Restore history from Supabase ─────────────────────────────────────────────
 
 if not st.session_state.session_restored and not st.session_state.chat_display:
     _db_msgs = load_session_messages(st.session_state.db_session_id)
@@ -341,17 +334,8 @@ if not st.session_state.session_restored and not st.session_state.chat_display:
         st.session_state.lc_messages = _build_clean_messages(st.session_state.chat_display)
         st.session_state.session_restored = True
         st.rerun()
-    elif (isinstance(_ls_value, str)
-            and _ls_value not in ("null", "undefined", "")):
-        try:
-            _saved = json.loads(_ls_value)
-            if _saved:
-                st.session_state.chat_display = _saved
-                st.session_state.lc_messages  = _build_clean_messages(_saved)
-                st.session_state.session_restored = True
-                st.rerun()
-        except Exception:
-            pass
+    else:
+        st.session_state.session_restored = True
 
 if st.session_state.chat_display:
     save_session(st.session_state.chat_display)
