@@ -96,10 +96,10 @@ SCROLL_BTN_SHOW = """
     btn.id = 'cri-scroll-btn';
     btn.title = 'Scroll to bottom';
     btn.innerHTML = '&#8595;';
-    btn.style.cssText = 'position:fixed;bottom:80px;right:16px;width:36px;height:36px;'
+    btn.style.cssText = 'position:fixed;bottom:90px;right:20px;width:40px;height:40px;'
         + 'border-radius:50%;background:__PRIMARY__;color:#fff;border:none;cursor:pointer;'
-        + 'font-size:18px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.18);'
-        + 'z-index:99999;opacity:0.82;transition:opacity 0.2s;';
+        + 'font-size:20px;font-weight:700;box-shadow:0 3px 12px rgba(0,0,0,0.25);'
+        + 'z-index:99999;opacity:0.92;transition:opacity 0.2s;';
     btn.style.cssText = btn.style.cssText.replace('__PRIMARY__', '__COLOR__');
     btn.onmouseover = function(){ btn.style.opacity='1'; };
     btn.onmouseout  = function(){ btn.style.opacity='0.82'; };

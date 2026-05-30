@@ -53,7 +53,10 @@ def get_css() -> str:
         letter-spacing: -0.01em;
         font-family: {FONT_HEADING};
     }}
-    [data-testid="stSidebar"] {{ top: 52px !important; }}
+    [data-testid="stSidebar"] {{
+        top: 52px !important;
+        z-index: 999 !important;
+    }}
 
     /* ── Layout ──────────────────────────────────────────────────────────── */
     [data-testid="stMainBlockContainer"] {{
