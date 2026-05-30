@@ -288,8 +288,25 @@ def get_css() -> str:
         fill: rgba(241,245,249,0.85) !important;
     }}
 
+    /* Sidebar toggle button — lives outside stHeader in the DOM but visually
+       overlaps it; needs explicit white styling + z-index to stay visible */
+    [data-testid="stSidebarCollapsedControl"] {{
+        z-index: 10001 !important;
+    }}
+    [data-testid="stSidebarCollapsedControl"] button {{
+        color: rgba(241,245,249,0.85) !important;
+        background: transparent !important;
+    }}
+    [data-testid="stSidebarCollapsedControl"] button svg,
+    [data-testid="stSidebarCollapsedControl"] button span {{
+        fill: rgba(241,245,249,0.85) !important;
+        color: rgba(241,245,249,0.85) !important;
+        stroke: rgba(241,245,249,0.85) !important;
+    }}
+
     /* ── Sidebar ──────────────────────────────────────────────────────────── */
     [data-testid="stSidebar"] {{
+        top: 52px !important;
         background: #faf9f7; border-right: 1px solid #e8e5e0;
     }}
     @media (max-width: 768px) {{
