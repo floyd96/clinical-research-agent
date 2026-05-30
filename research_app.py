@@ -5,7 +5,7 @@ import queue as q_module
 import random
 import re
 import threading
-from datetime import date
+from datetime import date, datetime
 import streamlit as st
 from streamlit_javascript import st_javascript
 from langchain.agents import create_agent
@@ -57,6 +57,103 @@ _SOUND_DONE = """
 })();
 </script>
 """
+
+_INIT_PARENT = """
+<script>
+(function(){
+    var p = window.parent;
+    if (!p || p._cri_init) return;
+    p._cri_init = true;
+    if (p.history && 'scrollRestoration' in p.history) {
+        p.history.scrollRestoration = 'manual';
+    }
+    function goTop() {
+        p.scrollTo(0, 0);
+        ['[data-testid="stAppViewContainer"]','[data-testid="stMainBlockContainer"]'].forEach(function(s){
+            var el = p.document.querySelector(s);
+            if (el) el.scrollTop = 0;
+        });
+    }
+    p.requestAnimationFrame(function(){ goTop(); p.requestAnimationFrame(goTop); });
+    setTimeout(goTop, 400);
+})();
+</script>
+"""
+
+_ENTERPRISE_RIBBON = """
+<script>
+(function(){
+    var p = window.parent;
+    if (!p || p.document.getElementById('ent-ribbon')) return;
+    var el = p.document.createElement('div');
+    el.id = 'ent-ribbon';
+    el.className = 'ent-ribbon';
+    el.innerHTML = '<div class="ent-ribbon-left">'
+        + '<span class="ent-burger">&#9776;</span>'
+        + '<span class="ent-brand">🧬 LifeSciences Intelligence</span>'
+        + '</div>'
+        + '<div class="ent-ribbon-right">'
+        + '<div class="ent-avatar">AR</div>'
+        + '<div><div class="ent-profile-name">Alex Reynolds</div>'
+        + '<div class="ent-profile-role">Research Lead</div></div>'
+        + '</div>';
+    p.document.body.prepend(el);
+})();
+</script>
+"""
+
+_SCROLL_BTN_SHOW = """
+<script>
+(function(){
+    var p = window.parent;
+    if (!p || p.document.getElementById('cri-scroll-btn')) return;
+    var btn = p.document.createElement('button');
+    btn.id = 'cri-scroll-btn';
+    btn.title = 'Scroll to bottom';
+    btn.innerHTML = '&#8595;';
+    btn.style.cssText = 'position:fixed;bottom:80px;right:16px;width:36px;height:36px;'
+        + 'border-radius:50%;background:#0891b2;color:#fff;border:none;cursor:pointer;'
+        + 'font-size:18px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.18);'
+        + 'z-index:99999;opacity:0.82;transition:opacity 0.2s;';
+    btn.onmouseover = function(){ btn.style.opacity='1'; };
+    btn.onmouseout  = function(){ btn.style.opacity='0.82'; };
+    btn.onclick = function(){
+        var doc = p.document;
+        // Find the element with the largest scrollable height — works across Streamlit versions
+        var best = null;
+        var bestH = 0;
+        doc.querySelectorAll('section, div, main, article').forEach(function(el){
+            var ov = p.getComputedStyle(el).overflowY;
+            if ((ov === 'auto' || ov === 'scroll') && el.scrollHeight > bestH) {
+                bestH = el.scrollHeight;
+                best = el;
+            }
+        });
+        if (best) {
+            best.scrollTop = best.scrollHeight;
+        }
+        // Always scroll specific known Streamlit containers and the window too
+        ['[data-testid="stAppViewContainer"]','[data-testid="stMain"]','.main'].forEach(function(s){
+            var el = doc.querySelector(s);
+            if (el) el.scrollTop = el.scrollHeight;
+        });
+        p.scrollTo(0, doc.documentElement.scrollHeight);
+    };
+    p.document.body.appendChild(btn);
+})();
+</script>
+"""
+
+_SCROLL_BTN_HIDE = """
+<script>
+(function(){
+    var p = window.parent;
+    var btn = p && p.document.getElementById('cri-scroll-btn');
+    if (btn) btn.remove();
+})();
+</script>
+"""
+
 
 def _play(sound_html: str):
     st.components.v1.html(sound_html, height=0)
@@ -427,6 +524,28 @@ st.markdown(
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
     }
 
+    /* ── Enterprise ribbon ───────────────────────────────── */
+    .ent-ribbon {
+        position: fixed; top: 0; left: 0; right: 0; height: 52px;
+        background: #0f172a; display: flex; align-items: center;
+        justify-content: space-between; padding: 0 1.25rem;
+        z-index: 10000; box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+        font-family: 'Inter', -apple-system, sans-serif;
+    }
+    .ent-ribbon-left { display: flex; align-items: center; gap: 1rem; }
+    .ent-burger { font-size: 1.1rem; color: #94a3b8; cursor: default; line-height: 1; }
+    .ent-brand { font-size: 0.875rem; font-weight: 600; color: #f1f5f9; letter-spacing: -0.01em; }
+    .ent-ribbon-right { display: flex; align-items: center; gap: 0.625rem; }
+    .ent-avatar {
+        width: 30px; height: 30px; border-radius: 50%;
+        background: #0891b2; color: #fff;
+        font-size: 0.7rem; font-weight: 700;
+        display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .ent-profile-name { font-size: 0.78rem; font-weight: 600; color: #f1f5f9; line-height: 1.2; }
+    .ent-profile-role { font-size: 0.68rem; color: #64748b; line-height: 1.2; }
+    [data-testid="stSidebar"] { top: 52px !important; }
+
     /* ── Layout ──────────────────────────────────────── */
     [data-testid="stMainBlockContainer"] {
         max-width: 840px;
@@ -435,66 +554,33 @@ st.markdown(
     }
     @media (max-width: 768px) {
         [data-testid="stMainBlockContainer"] {
-            padding: 0.75rem 0.5rem 4rem;
+            padding: 3rem 0.5rem 4rem;
             max-width: 100%;
         }
     }
     @media (max-width: 480px) {
         [data-testid="stMainBlockContainer"] {
-            padding: 0.5rem 0.25rem 4rem;
+            padding: 2.75rem 0.25rem 4rem;
         }
     }
 
     /* ── Background ───────────────────────────────────── */
-    [data-testid="stMain"] { background: #f1f5f9; }
+    [data-testid="stMain"] { background: #f5f4f0; }
     @media (max-width: 768px) {
-        [data-testid="stMain"] { background: #f8fafc !important; }
+        [data-testid="stMain"] { background: #f7f6f3 !important; }
     }
-    .hero, .cap-grid { position: relative; z-index: 1; }
 
-    /* ── Hero ─────────────────────────────────────────── */
-    .hero { text-align: center; padding: 3rem 1rem 1.75rem; }
-    .hero-icon { font-size: 3rem; line-height: 1; margin-bottom: 0.75rem; }
-    .hero-title {
-        font-size: 1.875rem; font-weight: 700; color: #0f172a;
-        letter-spacing: -0.03em; margin-bottom: 0.5rem;
+    /* ── Workspace header ─────────────────────────────── */
+    .workspace-header { padding: 2rem 0 1.75rem; }
+    .greeting-text {
+        font-size: 2.2rem; font-weight: 700; color: #0f172a;
+        letter-spacing: -0.04em; line-height: 1.1; margin-bottom: 0.5rem;
     }
-    .hero-sub {
-        font-size: 1rem; color: #64748b;
-        max-width: 420px; margin: 0 auto 1.5rem; line-height: 1.65;
-    }
-    .hero-badges { display: flex; justify-content: center; gap: 0.5rem; flex-wrap: wrap; }
+    .greeting-sub { font-size: 1rem; color: #64748b; font-weight: 400; }
     @media (max-width: 768px) {
-        .hero {
-            padding: 1.5rem 0.5rem 1rem;
-            background: #ffffff;
-            border-radius: 12px;
-            margin: 0.5rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .hero-icon { font-size: 2.25rem; }
-        .hero-title {
-            font-size: 1.3rem;
-            color: #1e293b !important;
-        }
-        .hero-sub {
-            font-size: 0.85rem;
-            color: #64748b !important;
-            max-width: 320px;
-        }
-        .hero-badges {
-            gap: 0.25rem;
-            margin-top: 1rem;
-        }
-    }
-    @media (max-width: 480px) {
-        .hero {
-            padding: 1.25rem 0.75rem 0.75rem;
-            margin: 0.25rem;
-        }
-        .hero-icon { font-size: 2rem; }
-        .hero-title { font-size: 1.15rem; }
-        .hero-sub { font-size: 0.8rem; max-width: 280px; }
+        .workspace-header { padding: 1.25rem 0 1rem; }
+        .greeting-text { font-size: 1.5rem; }
+        .greeting-sub { font-size: 0.875rem; }
     }
 
     /* ── Badges ───────────────────────────────────────── */
@@ -526,98 +612,42 @@ st.markdown(
         .badge { font-size: 0.65rem; padding: 3px 8px; }
     }
 
-    /* ── Capability cards ─────────────────────────────── */
-    .cap-grid { display: flex; gap: 1rem; margin: 1.5rem 0 0; }
-    .cap-card {
-        flex: 1; background: #ffffff; border: 1.5px solid #e2e8f0;
-        border-radius: 16px; padding: 1.25rem 1.375rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-    }
-    .cap-card-icon { font-size: 1.4rem; margin-bottom: 0.5rem; }
-    .cap-card-title { font-size: 0.875rem; font-weight: 600; color: #1e293b; margin-bottom: 0.3rem; }
-    .cap-card-body { font-size: 0.82rem; color: #64748b; line-height: 1.6; }
-    @media (max-width: 768px) {
-        .cap-grid {
-            flex-direction: column;
-            gap: 0.75rem;
-            margin: 1rem 0.5rem 0;
-        }
-        .cap-card {
-            padding: 1rem 1.125rem;
-            border-radius: 12px;
-            background: #ffffff !important;
-            border-color: #e2e8f0 !important;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
-        }
-        .cap-card-icon { font-size: 1.25rem; }
-        .cap-card-title {
-            font-size: 0.8rem;
-            color: #1e293b !important;
-            margin-bottom: 0.4rem;
-        }
-        .cap-card-body {
-            font-size: 0.75rem;
-            color: #64748b !important;
-            line-height: 1.5;
-        }
-    }
-    @media (max-width: 480px) {
-        .cap-grid { margin: 0.75rem 0.25rem 0; gap: 0.5rem; }
-        .cap-card {
-            padding: 0.875rem 1rem;
-            border-radius: 10px;
-        }
-        .cap-card-icon { font-size: 1.1rem; }
-        .cap-card-title { font-size: 0.75rem; }
-        .cap-card-body { font-size: 0.7rem; }
-    }
-
     /* ── Section label ────────────────────────────────── */
     .section-label {
-        font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em;
-        text-transform: uppercase; color: #94a3b8; margin: 1.75rem 0 0.75rem;
+        font-size: 0.68rem; font-weight: 700; letter-spacing: 0.1em;
+        text-transform: uppercase; color: #a8a29e; margin: 1.5rem 0 0.75rem;
     }
 
     /* ── Example question buttons ─────────────────────── */
     div[data-testid="column"] .stButton > button {
-        background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 12px;
-        padding: 0.875rem 1rem; text-align: left; height: auto; min-height: 68px;
-        font-size: 0.875rem; color: #334155; font-weight: 500;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.15s ease;
+        background: #ffffff; border: 1px solid #e8e5e0; border-radius: 14px;
+        padding: 1rem 1.125rem; text-align: left; height: auto; min-height: 72px;
+        font-size: 0.875rem; color: #374151; font-weight: 500;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: all 0.15s ease;
         white-space: normal; line-height: 1.5; width: 100%;
     }
     div[data-testid="column"] .stButton > button:hover {
-        border-color: #3b82f6; background: #eff6ff;
-        box-shadow: 0 4px 12px rgba(59,130,246,0.1);
-        transform: translateY(-1px); color: #1d4ed8;
+        border-color: #d4c9b8; background: #fdf8f3;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+        transform: translateY(-1px); color: #1a1a1a;
     }
     @media (max-width: 768px) {
         div[data-testid="column"] .stButton > button {
-            min-height: 60px;
-            font-size: 0.8rem;
-            padding: 0.75rem 0.875rem;
-            background: #ffffff !important;
-            border: 1.5px solid #e2e8f0 !important;
-            color: #334155 !important;
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.06);
-            /* Better touch target */
-            min-width: 44px;
+            min-height: 56px; font-size: 0.82rem; padding: 0.75rem 0.875rem;
+            border-radius: 10px; background: #ffffff !important;
+            border: 1px solid #e8e5e0 !important; color: #374151 !important;
             margin-bottom: 0.5rem;
         }
         div[data-testid="column"] .stButton > button:active {
-            background: #f1f5f9 !important;
-            border-color: #3b82f6 !important;
+            background: #fdf8f3 !important;
+            border-color: #d4c9b8 !important;
             transform: scale(0.98);
         }
     }
     @media (max-width: 480px) {
         div[data-testid="column"] .stButton > button {
-            min-height: 54px;
-            font-size: 0.75rem;
-            padding: 0.625rem 0.75rem;
-            line-height: 1.4;
-            border-radius: 8px;
+            min-height: 52px; font-size: 0.78rem;
+            padding: 0.625rem 0.75rem; border-radius: 8px;
         }
     }
 
@@ -718,7 +748,7 @@ st.markdown(
     [data-testid="stDecoration"] { display: none !important; }
 
     /* ── Sidebar ──────────────────────────────────────── */
-    [data-testid="stSidebar"] { background: #ffffff; border-right: 1px solid #e8ecf0; }
+    [data-testid="stSidebar"] { background: #faf9f7; border-right: 1px solid #e8e5e0; }
 
     @media (max-width: 768px) {
         [data-testid="stSidebar"] {
@@ -822,12 +852,23 @@ st.markdown(
             color: #374151 !important;
         }
     }
+
+    /* ── Sidebar enterprise elements ─────────────────── */
+    .src-status { display:flex; align-items:center; gap:0.5rem; padding:0.25rem 0; font-size:0.82rem; }
+    .src-dot { color:#16a34a; font-size:0.55rem; flex-shrink:0; }
+    .src-name { color:#334155; font-weight:500; flex:1; }
+    .src-conn { color:#16a34a; font-size:0.72rem; font-weight:600; }
+    .hist-item { font-size:0.73rem; color:#64748b; padding:0.15rem 0.5rem; border-left:2px solid #e2e8f0; margin:0.15rem 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
 agent, all_tools = get_agent()
+
+_PROFILE_FIRST_NAME = "Alex"
+_hour = datetime.now().hour
+_greeting = f"Good {'morning' if _hour < 12 else 'afternoon' if _hour < 17 else 'evening'}, {_PROFILE_FIRST_NAME}."
 
 # ── Question pool ─────────────────────────────────────────────────────────────
 _QUESTION_POOL = [
@@ -881,28 +922,15 @@ if (isinstance(_ls_value, str)
 if st.session_state.chat_display:
     _save_session(st.session_state.chat_display)
 
-# Scroll to top on fresh page load / refresh only (not on every rerun)
-if "page_loaded" not in st.session_state:
-    st.session_state.page_loaded = True
-    st.components.v1.html("""
-        <script>
-        function scrollTop() {
-            var p = window.parent;
-            p.scrollTo({top: 0, behavior: 'instant'});
-            var selectors = [
-                '[data-testid="stAppViewContainer"]',
-                '[data-testid="stMainBlockContainer"]',
-                '.main', 'section.main'
-            ];
-            selectors.forEach(function(s) {
-                var el = p.document.querySelector(s);
-                if (el) el.scrollTop = 0;
-            });
-        }
-        setTimeout(scrollTop, 100);
-        setTimeout(scrollTop, 400);
-        </script>
-    """, height=0)
+# Clear localStorage on the render AFTER clear is clicked (iframe survives without an immediate rerun)
+if st.session_state.pop("clear_storage", False):
+    _clear_session_storage()
+
+# Init parent window: disable scroll restoration + scroll to top (runs once per browser session)
+st.components.v1.html(_INIT_PARENT, height=0)
+
+# Enterprise ribbon — injected once into parent window, persists across rerenders
+st.components.v1.html(_ENTERPRISE_RIBBON, height=0)
 
 # Play done chime on the rerun that follows agent completion
 if st.session_state.pop("play_done_sound", False):
@@ -910,30 +938,47 @@ if st.session_state.pop("play_done_sound", False):
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("## 🧬 Clinical Research Intelligence")
-    st.divider()
-
     ct_tools = [t for t in all_tools if _is_ct_tool(t.name)]
     pm_tools = [t for t in all_tools if t not in ct_tools]
 
-    st.markdown("**Connected sources**")
-    col_a, col_b = st.columns(2)
-    with col_a:
-        st.markdown(
-            f'<span class="source-pill pill-ct">🏥 ClinicalTrials</span>'
-            f'<br><small>{len(ct_tools)} tools</small>',
-            unsafe_allow_html=True,
-        )
-    with col_b:
-        st.markdown(
-            f'<span class="source-pill pill-pm">📚 PubMed</span>'
-            f'<br><small>{len(pm_tools)} tools</small>',
-            unsafe_allow_html=True,
-        )
+    st.markdown("**Data Sources**")
+    st.markdown(
+        '<div class="src-status"><span class="src-dot">●</span>'
+        '<span class="src-name">ClinicalTrials.gov</span>'
+        '<span class="src-conn">● Live</span></div>'
+        '<div class="src-status"><span class="src-dot">●</span>'
+        '<span class="src-name">PubMed</span>'
+        '<span class="src-conn">● Live</span></div>',
+        unsafe_allow_html=True,
+    )
 
     st.divider()
 
-    has_chat = len(st.session_state.chat_display) > 0
+    user_queries = [m["content"] for m in st.session_state.chat_display if m["role"] == "user"]
+    if user_queries:
+        st.markdown(f"**Session History** · {len(user_queries)}")
+        for q in user_queries[-5:]:
+            label = q[:52] + "…" if len(q) > 52 else q
+            st.markdown(f'<div class="hist-item">{label}</div>', unsafe_allow_html=True)
+        st.divider()
+
+    session_nct, session_pm = [], []
+    for m in st.session_state.chat_display:
+        if m["role"] == "assistant":
+            for src_type, src_id in m.get("sources", []):
+                if src_type == "ct" and src_id not in session_nct:
+                    session_nct.append(src_id)
+                elif src_type == "pm" and src_id not in session_pm:
+                    session_pm.append(src_id)
+    if session_nct or session_pm:
+        st.markdown("**Retrieved Sources**")
+        for nct in session_nct[:5]:
+            st.markdown(f"🏥 [{nct}](https://clinicaltrials.gov/study/{nct})")
+        for pmid in session_pm[:5]:
+            st.markdown(f"📚 [PMID {pmid}](https://pubmed.ncbi.nlm.nih.gov/{pmid}/)")
+        st.divider()
+
+    has_chat = bool(st.session_state.chat_display)
     st.download_button(
         label="📄 Export session",
         data=_build_html_export(st.session_state.chat_display) if has_chat else " ",
@@ -943,58 +988,25 @@ with st.sidebar:
         disabled=not has_chat,
     )
     if has_chat:
-        st.caption("Open the file in a browser → Ctrl+P → Save as PDF")
+        st.caption("Open in browser → Ctrl+P → Save as PDF")
 
     st.divider()
-    if st.button("🗑️ Clear chat", use_container_width=True):
+    if st.button("🗑️ Clear session", use_container_width=True):
         st.session_state.lc_messages = []
         st.session_state.chat_display = []
         st.session_state.session_restored = True
         st.session_state.example_questions = random.sample(_QUESTION_POOL, 4)
-        _clear_session_storage()
+        st.session_state.clear_storage = True
         st.rerun()
 
 # ── Hero (empty) / Compact header (active) ────────────────────────────────────
 if not st.session_state.chat_display:
+    st.components.v1.html(_SCROLL_BTN_HIDE, height=0)
     st.markdown(
-        """
-        <div class="hero">
-            <div class="hero-icon">🧬</div>
-            <div class="hero-title">Clinical Research Intelligence</div>
-            <div class="hero-sub">
-                Search clinical trials and published literature together —
-                get grounded, cited answers in seconds.
-            </div>
-            <div class="hero-badges">
-                <span class="badge badge-ct">🏥 ClinicalTrials.gov</span>
-                <span class="badge badge-pm">📚 PubMed</span>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        """
-        <div class="cap-grid">
-            <div class="cap-card">
-                <div class="cap-card-icon">🏥</div>
-                <div class="cap-card-title">Clinical Trials</div>
-                <div class="cap-card-body">
-                    Find active, recruiting, or completed trials.
-                    Explore phases, eligibility criteria, sponsors, and locations.
-                </div>
-            </div>
-            <div class="cap-card">
-                <div class="cap-card-icon">📚</div>
-                <div class="cap-card-title">Published Literature</div>
-                <div class="cap-card-body">
-                    Discover published results, systematic reviews, and
-                    meta-analyses from PubMed's 35M+ articles.
-                </div>
-            </div>
-        </div>
-        """,
+        f'<div class="workspace-header">'
+        f'<div class="greeting-text">{_greeting}</div>'
+        f'<div class="greeting-sub">Your clinical research workspace is ready.</div>'
+        f'</div>',
         unsafe_allow_html=True,
     )
 
@@ -1003,14 +1015,14 @@ if not st.session_state.chat_display:
     col1, col2 = st.columns(2)
     for i, (badge, ex) in enumerate(st.session_state.example_questions):
         col = col1 if i % 2 == 0 else col2
-        if col.button(f"{badge}  {ex}", use_container_width=True, key=f"ex{i}"):
+        if col.button(ex, use_container_width=True, key=f"ex{i}"):
             st.session_state.queued_prompt = ex
             st.rerun()
 
 else:
+    st.components.v1.html(_SCROLL_BTN_SHOW, height=0)
     st.markdown(
         '<div class="compact-header">'
-        '<span class="compact-title">🧬 Clinical Research Intelligence</span>'
         '<span class="badge badge-ct">🏥 ClinicalTrials.gov</span>'
         '<span class="badge badge-pm">📚 PubMed</span>'
         '</div>',
