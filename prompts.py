@@ -245,6 +245,32 @@ Mayo Clinic clinical recommendations and is not a substitute for consultation wi
 Do not append the disclaimer to purely definitional, count, or exploratory responses."""
 
 
+# ── Answer structure (aligns with design spec Section 9) ─────────────────────
+
+_ANSWER_STRUCTURE = """## REQUIRED ANSWER STRUCTURE (all new research queries)
+
+Structure every new research response in this order — no exceptions:
+
+**1. Key Insight** (1–2 sentences)
+Synthesize the most important finding upfront. State what is known and at what evidence level.
+Lead with the finding, not with process descriptions like "I searched for..." or "Based on the data...".
+
+**2. Evidence**
+Trial cards and/or paper cards using the formats in STEP 3. Max 3 trials + 3 papers.
+
+**3. Confidence Assessment** (mandatory, one level only)
+Explicitly state one of:
+- **Established** — supported by peer-reviewed, replicated evidence
+- **Investigational** — under active study; limited or no published outcomes yet
+- **Emerging / Contested** — early-phase, contradictory findings, or insufficient evidence
+
+**4. Related Studies** (when available from retrieval)
+1–3 related NCT IDs or PMIDs worth exploring next, each with a one-line description.
+Omit only if no clearly related studies were returned.
+
+**Competitive landscape queries** use the dedicated template in STEP 3, which supersedes the card format above — but Key Insight and Related Studies are still mandatory and are embedded in that template. Do not omit them."""
+
+
 # ── Step 3: Format response ───────────────────────────────────────────────────
 
 _STEP3_FORMAT = """## STEP 3 — FORMAT YOUR RESPONSE
@@ -286,6 +312,8 @@ Output format:
 ---
 ## Competitive Landscape: {Condition or Drug}
 
+**Key Insight:** {1–2 sentences synthesizing the dominant pattern — who leads, what phases dominate, and at what evidence level. Lead with the finding, not with "I searched for..."}
+
 ### Sponsor & Trial Activity
 | Sponsor | Active Trials | Phases | Key Status |
 |---|---|---|---|
@@ -295,13 +323,18 @@ Output format:
 {Up to 3 trial cards using the standard trial card format below}
 
 ### Published Evidence
-{Up to 2 paper cards using the standard paper card format below}
+{Up to 2 paper cards using the standard paper card format below. If no papers were retrieved, state: "No published literature was retrieved for this query."}
 
 ### Intelligence Summary
 - **Leading sponsors:** {who dominates the space}
 - **Phase distribution:** {where most trial activity sits}
-- **Evidence maturity:** {Established / Investigational / Unknown — apply the uncertainty framework}
+- **Evidence maturity:** {Established / Investigational / Emerging — apply the uncertainty framework}
 - **Gaps:** {what is not yet studied or published}
+
+### Related Studies
+{1–3 NCT IDs or PMIDs retrieved but not featured above, each with a one-line reason to explore. Omit this section only if no additional results were returned.}
+
+> This information is retrieved from publicly available research databases. It does not represent Mayo Clinic clinical recommendations and is not a substitute for consultation with a qualified clinician.
 ---
 
 ### New research query — structured cards
@@ -318,6 +351,7 @@ do not add a "## Clinical Trials" section.
 | **NCT ID** | [NCT{id}](https://clinicaltrials.gov/study/NCT{id}) |
 | **Recruiting status** | {emoji} {status} |
 | **Phase** | {phase} |
+| **Evidence Strength** | {Established — results published · Investigational — active or recently completed · Emerging — Phase 1–2, limited data} |
 | **Condition** | {condition} |
 | **Intervention** | {intervention or drug name} |
 | **Location** | {primary site or country} |
@@ -372,5 +406,6 @@ SYSTEM_PROMPT = "\n\n---\n\n".join([
     _STEP1_REASON,
     _STEP2_TOOL_SELECTION,
     _COMPLIANCE,
+    _ANSWER_STRUCTURE,
     _STEP3_FORMAT,
 ])

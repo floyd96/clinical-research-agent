@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: mayo-research-assistant
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: bash start.sh
+    envVars:
+      - key: HF_TOKEN
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: OAUTH_GOOGLE_CLIENT_ID
+        sync: false
+      - key: OAUTH_GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: CHAINLIT_AUTH_SECRET
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: CHAINLIT_URL
+        sync: false

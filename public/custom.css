@@ -1,0 +1,69 @@
+/* ── Fonts ─────────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* ── CSS custom property overrides — beat Chainlit's defaults ───────────── */
+:root {
+    --primary: 224 83% 32% !important;
+    --primary-foreground: 0 0% 100% !important;
+    --background: 228 33% 97% !important;
+    --ring: 224 83% 32% !important;
+}
+
+/* ── Base ──────────────────────────────────────────────────────────────── */
+body, #root {
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif !important;
+    background: hsl(var(--background)) !important;
+    background-color: hsl(var(--background)) !important;
+}
+
+/* ── Hide Chainlit branding ─────────────────────────────────────────────── */
+img[alt*="chainlit" i],
+img[alt*="Chainlit"],
+[class*="watermark"],
+[class*="brand-logo"] { display: none !important; }
+
+/* ── Hide theme toggle ───────────────────────────────────────────────────── */
+header button[aria-label*="theme" i],
+header button[aria-label*="dark" i],
+header button[aria-label*="light" i],
+header svg[data-testid="LightModeIcon"] + *,
+header svg[data-testid="DarkModeIcon"] + *,
+header button:has(svg[data-testid$="ModeIcon"]) { display: none !important; }
+
+/* ── Typography ─────────────────────────────────────────────────────────── */
+*, *::before, *::after { font-family: inherit !important; box-sizing: border-box; }
+h1 { font-size: 28px !important; font-weight: 700 !important; letter-spacing: -0.02em !important; }
+h2 { font-size: 20px !important; font-weight: 600 !important; }
+h3 { font-size: 16px !important; font-weight: 600 !important; }
+
+/* ── Tables (evidence cards) ────────────────────────────────────────────── */
+table { border-collapse: collapse !important; font-size: 14px !important; }
+th { background: #F3F4F6 !important; font-weight: 600 !important; padding: 8px 12px !important;
+     border-bottom: 2px solid #E5E7EB !important; text-align: left !important; }
+td { padding: 8px 12px !important; border-bottom: 1px solid #E5E7EB !important; }
+
+/* ── Links ──────────────────────────────────────────────────────────────── */
+a { color: #1F497D !important; }
+
+/* ── Scrollbar ──────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 3px; }
+
+/* ── Header — exact element confirmed via DevTools ──────────────────────── */
+#header {
+    background-color: #0E3293 !important;
+    background: #0E3293 !important;
+}
+#header * {
+    color: #F9FAFB !important;
+    fill: #F9FAFB !important;
+}
+
+/* ── Right evidence side panel ─────────────────────────────────────────── */
+[class*="side-view"], [class*="SideView"],
+[class*="element-side"], [class*="ElementSide"] {
+    background: #FFFFFF !important;
+    border-left: 1px solid #E5E7EB !important;
+    padding: 24px !important;
+}

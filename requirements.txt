@@ -1,4 +1,4 @@
-streamlit>=1.35.0
+chainlit==2.11.1
 langgraph>=1.2.2
 langchain>=0.3.0
 langchain-core>=0.3.0
@@ -6,6 +6,6 @@ langchain-huggingface>=0.1.0
 langchain-mcp-adapters>=0.1.0
 huggingface_hub>=0.23.0
 python-dotenv>=1.0.0
-streamlit-javascript>=0.1.5
 supabase>=2.4.0
 Authlib>=1.3.2
+asyncpg>=0.29.0

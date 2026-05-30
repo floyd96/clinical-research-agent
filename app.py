@@ -1,0 +1,187 @@
+import os
+import re
+import random
+from typing import Optional
+
+import chainlit as cl
+from langchain.agents import create_agent
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from langchain_mcp_adapters.client import MultiServerMCPClient
+
+from config import (
+    CLINICALTRIALS_MCP_URL, PUBMED_MCP_URL,
+    BRAND_TAGLINE, BETA_WHITELIST,
+)
+from db import (
+    upsert_user, create_session, set_session_title,
+    save_message,
+)
+from prompts import SYSTEM_PROMPT
+from questions import QUESTION_POOL
+from research_agent import model, classifier_model
+
+
+_CT_KEYWORDS = {"clinical", "trial", "nct", "study"}
+_PM_KEYWORDS = {"pubmed", "article", "paper", "literature", "abstract", "pmid", "mesh"}
+
+
+def _is_ct_tool(name: str) -> bool:
+    return any(k in name.lower() for k in _CT_KEYWORDS)
+
+
+# ── Auth ───────────────────────────────────────────────────────────────────────
+
+@cl.oauth_callback
+def oauth_callback(
+    provider_id: str,
+    token: str,
+    raw_user_data: dict,
+    default_user: cl.User,
+) -> Optional[cl.User]:
+    email = raw_user_data.get("email", "")
+    if email.lower() in [e.lower() for e in BETA_WHITELIST]:
+        return cl.User(identifier=email, metadata=raw_user_data)
+    return None
+
+
+# ── Starter questions (shown before first message) ─────────────────────────────
+
+@cl.set_starters
+async def set_starters():
+    starters = random.sample(QUESTION_POOL, 4)
+    return [
+        cl.Starter(
+            label=f"{badge} {q[:72]}",
+            message=q,
+        )
+        for badge, q in starters
+    ]
+
+
+# ── Session start ──────────────────────────────────────────────────────────────
+
+@cl.on_chat_start
+async def on_chat_start():
+    user = cl.user_session.get("user")
+    email = user.identifier if user else ""
+    first_name = email.split("@")[0].capitalize()
+
+    uid = upsert_user(email=email, display_name=first_name)
+
+    # Auto-generated session ID — safe, no FK conflicts
+    sid = create_session(uid)
+
+    cl.user_session.set("db_user_id", uid)
+    cl.user_session.set("db_session_id", sid)
+    cl.user_session.set("lc_messages", [])
+    cl.user_session.set("turn", 0)
+
+    client = MultiServerMCPClient({
+        "clinicaltrials": {"url": CLINICALTRIALS_MCP_URL, "transport": "streamable_http"},
+        "pubmed":         {"url": PUBMED_MCP_URL,         "transport": "streamable_http"},
+    })
+    mcp_tools = await client.get_tools()
+    agent = create_agent(model, mcp_tools, system_prompt=SYSTEM_PROMPT)
+    cl.user_session.set("agent", agent)
+
+
+
+# ── Message handler ────────────────────────────────────────────────────────────
+
+@cl.on_message
+async def on_message(message: cl.Message):
+    await handle_query(message.content)
+
+
+async def handle_query(query: str):
+    agent   = cl.user_session.get("agent")
+    lc_msgs = cl.user_session.get("lc_messages", [])
+    sid     = cl.user_session.get("db_session_id")
+    uid     = cl.user_session.get("db_user_id")
+    turn    = cl.user_session.get("turn", 0)
+
+    lc_msgs.append(HumanMessage(content=query))
+
+    # Intent classification (skip on first turn — always research)
+    intent = "research"
+    if turn > 0:
+        ctx = _build_classifier_context(lc_msgs[:-1])
+        try:
+            result = await classifier_model.ainvoke(
+                f"Research context:\n{ctx}\n\nNew message:\n{query}\n\n"
+                "Reply with exactly one word — 'followup' or 'research':"
+            )
+            intent = "followup" if "followup" in result.content.lower() else "research"
+        except Exception:
+            pass
+
+    msg = cl.Message(content="")
+    sources: set[tuple[str, str]] = set()
+
+    if intent == "followup":
+        async for chunk in model.astream([SystemMessage(content=SYSTEM_PROMPT)] + lc_msgs):
+            if isinstance(chunk.content, str) and chunk.content:
+                await msg.stream_token(chunk.content)
+    else:
+        async for event in agent.astream_events({"messages": lc_msgs}, version="v2"):
+            kind = event["event"]
+            if kind == "on_tool_start":
+                badge = "🏥" if _is_ct_tool(event["name"]) else "📚"
+                async with cl.Step(name=f"{badge} {event['name']}", type="tool"):
+                    pass
+            elif kind == "on_tool_end":
+                raw = str(event["data"].get("output", ""))
+                for nct in re.findall(r'NCT\d{8}', raw):
+                    sources.add(("ct", nct))
+                for pmid in re.findall(r'(?i)(?:"pmid"|pmid)["\s:]+(\d{6,8})', raw):
+                    sources.add(("pm", pmid))
+            elif kind == "on_chat_model_stream":
+                chunk = event["data"].get("chunk")
+                if (chunk and isinstance(chunk.content, str) and chunk.content
+                        and not getattr(chunk, "tool_call_chunks", [])):
+                    await msg.stream_token(chunk.content)
+
+    # Attach source links as inline elements
+    if sources:
+        ct = sorted(i for t, i in sources if t == "ct")
+        pm = sorted(i for t, i in sources if t == "pm")
+        lines = []
+        if ct:
+            lines.append("**🏥 ClinicalTrials.gov**")
+            lines.extend(f"- [{nct}](https://clinicaltrials.gov/study/{nct})" for nct in ct[:5])
+        if pm:
+            lines.append("**📚 PubMed**")
+            lines.extend(f"- [PMID {pmid}](https://pubmed.ncbi.nlm.nih.gov/{pmid}/)" for pmid in pm[:5])
+        panel_title = f"Evidence & Citations — {len(ct) + len(pm)} source(s)"
+        msg.elements = [
+            cl.Text(name=panel_title, content="\n".join(lines), display="side")
+        ]
+
+    await msg.update()
+
+    # Update session state
+    lc_msgs.append(AIMessage(content=msg.content))
+    cl.user_session.set("lc_messages", lc_msgs)
+    cl.user_session.set("turn", turn + 1)
+
+    # Persist to Supabase
+    user_idx = turn * 2
+    try:
+        save_message(sid, user_idx,     "user",      query,       [],  [])
+        save_message(sid, user_idx + 1, "assistant", msg.content, [], list(sources))
+        if turn == 0:
+            try:
+                set_session_title(sid, query)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+
+def _build_classifier_context(msgs: list) -> str:
+    parts = []
+    for m in msgs[-6:]:
+        if isinstance(m, AIMessage) and m.content:
+            for heading in re.findall(r'^#{1,3} (.+)$', m.content, re.MULTILINE):
+                parts.append(heading[:60])
+    return "\n".join(parts) if parts else "No prior research context."

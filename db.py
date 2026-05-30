@@ -11,14 +11,14 @@ from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Optional
 
-import streamlit as st
+import os
 from supabase import create_client, Client
 
 
 @lru_cache(maxsize=1)
 def _get_client() -> Client:
-    url: str = st.secrets["supabase"]["url"]
-    key: str = st.secrets["supabase"]["service_role_key"]
+    url: str = os.environ["SUPABASE_URL"]
+    key: str = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
     return create_client(url, key)
 
 
@@ -57,6 +57,13 @@ def create_session(user_id: str) -> str:
         .execute()
     )
     return result.data[0]["id"]
+
+
+def create_session_with_id(session_id: str, user_id: str) -> str:
+    """Create a chat session row with a specific ID (synced with Chainlit's thread_id)."""
+    client = _get_client()
+    client.table("chat_sessions").insert({"id": session_id, "user_id": user_id}).execute()
+    return session_id
 
 
 def close_session(session_id: str) -> None:

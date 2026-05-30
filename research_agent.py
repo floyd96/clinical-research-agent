@@ -1,6 +1,5 @@
 import asyncio
 import os
-import threading
 
 from dotenv import load_dotenv
 from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
@@ -34,16 +33,6 @@ _classifier_llm = HuggingFaceEndpoint(
     max_new_tokens=CLASSIFIER_MAX_TOKENS,
 )
 classifier_model = ChatHuggingFace(llm=_classifier_llm)
-
-# ── Persistent async event loop (shared across Streamlit reruns) ──────────────
-
-_loop = asyncio.new_event_loop()
-threading.Thread(target=_loop.run_forever, daemon=True).start()
-
-
-def run_async(coro):
-    return asyncio.run_coroutine_threadsafe(coro, _loop).result()
-
 
 # ── CLI runner ────────────────────────────────────────────────────────────────
 
