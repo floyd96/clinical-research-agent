@@ -55,3 +55,17 @@ EXPORT_PDF_TIP         = "To save as PDF: open in browser and select Print → S
 
 # ── Session storage key ───────────────────────────────────────────────────────
 LS_KEY                 = "cri_session"
+
+# ── Beta access whitelist ─────────────────────────────────────────────────────
+# Gmail addresses granted access to the private beta. Keep sorted.
+BETA_WHITELIST: list[str] = [
+    "swapno777@gmail.com",
+    # add up to 19 more addresses here
+]
+
+# ── Auth UI copy ──────────────────────────────────────────────────────────────
+AUTH_LOGIN_SUBTITLE = "Sign in with your Google account to continue."
+AUTH_DENIED_MSG     = (
+    "Your account is not on the beta access list. "
+    "Contact the research team to request access."
+)

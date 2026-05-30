@@ -12,11 +12,17 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from config import (
     CLINICALTRIALS_MCP_URL, PUBMED_MCP_URL,
     PAGE_TITLE, PAGE_ICON,
-    BRAND_TAGLINE,
+    BRAND_TAGLINE, COLOR_PRIMARY,
     CHAT_PLACEHOLDER, STATUS_RETRIEVING, SECTION_SUGGESTIONS,
     EXPORT_BUTTON_LABEL, CLEAR_BUTTON_LABEL, EXPORT_PDF_TIP,
     SIDEBAR_SOURCES_HDR, SIDEBAR_HISTORY_HDR, SIDEBAR_RETRIEVED_HDR,
     LS_KEY,
+    BETA_WHITELIST, AUTH_LOGIN_SUBTITLE, AUTH_DENIED_MSG,
+)
+from db import (
+    upsert_user, create_session, close_session, set_session_title,
+    save_message, load_session_messages,
+    load_session_feedback,
 )
 from prompts import SYSTEM_PROMPT
 from questions import QUESTION_POOL
@@ -27,7 +33,8 @@ from ui.components import (
     SOUND_SEND, SOUND_DONE, INIT_PARENT,
     SCROLL_BTN_SHOW, SCROLL_BTN_HIDE,
     get_ribbon_js,
-    play, copy_button, render_sources, save_session, clear_session_storage,
+    play, copy_button, render_feedback_buttons, render_sources,
+    save_session, clear_session_storage,
     build_html_export,
 )
 
@@ -233,6 +240,30 @@ def run_agent(messages, status_container, response_placeholder):
 # ── Page config ────────────────────────────────────────────────────────────────
 
 st.set_page_config(page_title=PAGE_TITLE, page_icon=PAGE_ICON, layout="wide")
+
+# ── Authentication gate ────────────────────────────────────────────────────────
+if not getattr(st.user, "is_logged_in", False):
+    _, col_c, _ = st.columns([1, 2, 1])
+    with col_c:
+        st.markdown(
+            f'<div style="text-align:center;padding:3rem 0 1.5rem;">'
+            f'<div style="font-size:1.5rem;font-weight:700;color:{COLOR_PRIMARY};">'
+            f'{PAGE_TITLE}</div>'
+            f'<div style="color:#64748b;margin-top:0.5rem;">'
+            f'{AUTH_LOGIN_SUBTITLE}</div></div>',
+            unsafe_allow_html=True,
+        )
+        if st.button("Sign in with Google", use_container_width=True, type="primary"):
+            st.login("google")
+    st.stop()
+
+_user_email = getattr(st.user, "email", "") or ""
+if _user_email.lower() not in [e.lower() for e in BETA_WHITELIST]:
+    st.error(AUTH_DENIED_MSG)
+    if st.button("Sign out"):
+        st.logout()
+    st.stop()
+
 st.markdown(get_css(), unsafe_allow_html=True)
 
 agent, all_tools = get_agent()
@@ -249,30 +280,70 @@ if "example_questions" not in st.session_state:
     st.session_state.example_questions = random.sample(QUESTION_POOL, 4)
 if "session_restored"  not in st.session_state:
     st.session_state.session_restored  = False
+if "db_user_id"        not in st.session_state:
+    st.session_state.db_user_id        = None
+if "db_session_id"     not in st.session_state:
+    st.session_state.db_session_id     = None
+if "message_ids"       not in st.session_state:
+    st.session_state.message_ids       = {}   # msg_index -> message UUID
+if "feedback_given"    not in st.session_state:
+    st.session_state.feedback_given    = {}   # message_id -> 'up'|'down'
+if "db_initialized"    not in st.session_state:
+    st.session_state.db_initialized    = False
+
+# ── DB init (once per Streamlit session, after auth gate passes) ──────────────
+if not st.session_state.db_initialized:
+    _uid = upsert_user(
+        email=getattr(st.user, "email", "") or "",
+        display_name=getattr(st.user, "name", None),
+    )
+    st.session_state.db_user_id    = _uid
+    st.session_state.db_session_id = create_session(_uid)
+    st.session_state.db_initialized = True
 
 # ── Browser-local hour for greeting (avoids server UTC mismatch on prod) ──────
 # +1 shifts range to 1-24 so 0 (st_javascript loading placeholder) is unambiguous
 
 _js_hour = st_javascript("new Date().getHours() + 1")
 _hour = (int(_js_hour) - 1) if isinstance(_js_hour, (int, float)) and 1 <= _js_hour <= 24 else datetime.now().hour
-_greeting = f"Good {'morning' if _hour < 12 else 'afternoon' if _hour < 17 else 'evening'}."
+_first_name = (getattr(st.user, "name", None) or getattr(st.user, "email", "") or "").split()[0]
+_greeting = f"Good {'morning' if _hour < 12 else 'afternoon' if _hour < 17 else 'evening'}, {_first_name}."
 
-# ── Restore history from localStorage ─────────────────────────────────────────
+# ── Restore history: DB primary, localStorage fallback ────────────────────────
 
 _ls_value = st_javascript(f"(window.parent||window).localStorage.getItem('{LS_KEY}') || 'null'")
-if (isinstance(_ls_value, str)
-        and _ls_value not in ("null", "undefined", "")
-        and not st.session_state.session_restored
-        and not st.session_state.chat_display):
-    try:
-        _saved = json.loads(_ls_value)
-        if _saved:
-            st.session_state.chat_display = _saved
-            st.session_state.lc_messages  = _build_clean_messages(_saved)
-            st.session_state.session_restored = True
-            st.rerun()
-    except Exception:
-        pass
+
+if not st.session_state.session_restored and not st.session_state.chat_display:
+    _db_msgs = load_session_messages(st.session_state.db_session_id)
+    if _db_msgs:
+        st.session_state.chat_display = [
+            {
+                "role": row["role"],
+                "content": row["content"],
+                "tools_used": row["tools_used"],
+                "sources": [tuple(s) for s in row["sources"]],
+            }
+            for row in _db_msgs
+        ]
+        st.session_state.message_ids = {row["msg_index"]: row["id"] for row in _db_msgs}
+        st.session_state.feedback_given = load_session_feedback(
+            st.session_state.db_session_id,
+            st.session_state.db_user_id,
+        )
+        st.session_state.lc_messages = _build_clean_messages(st.session_state.chat_display)
+        st.session_state.session_restored = True
+        st.rerun()
+    elif (isinstance(_ls_value, str)
+            and _ls_value not in ("null", "undefined", "")):
+        try:
+            _saved = json.loads(_ls_value)
+            if _saved:
+                st.session_state.chat_display = _saved
+                st.session_state.lc_messages  = _build_clean_messages(_saved)
+                st.session_state.session_restored = True
+                st.rerun()
+        except Exception:
+            pass
 
 if st.session_state.chat_display:
     save_session(st.session_state.chat_display)
@@ -281,7 +352,7 @@ if st.session_state.pop("clear_storage", False):
     clear_session_storage()
 
 st.components.v1.html(INIT_PARENT, height=0)
-st.components.v1.html(get_ribbon_js(), height=0)
+st.components.v1.html(get_ribbon_js(user_display=getattr(st.user, "email", "")), height=0)
 
 if st.session_state.pop("play_done_sound", False):
     play(SOUND_DONE)
@@ -341,12 +412,25 @@ with st.sidebar:
 
     st.divider()
     if st.button(CLEAR_BUTTON_LABEL, use_container_width=True):
+        if st.session_state.db_session_id:
+            close_session(st.session_state.db_session_id)
+        st.session_state.db_session_id     = create_session(st.session_state.db_user_id)
+        st.session_state.message_ids       = {}
+        st.session_state.feedback_given    = {}
         st.session_state.lc_messages       = []
         st.session_state.chat_display      = []
         st.session_state.session_restored  = True
         st.session_state.example_questions = random.sample(QUESTION_POOL, 4)
         st.session_state.clear_storage     = True
         st.rerun()
+
+    st.divider()
+    col_u, col_o = st.columns([3, 1])
+    with col_u:
+        st.caption(f"Signed in as {getattr(st.user, 'email', '')}")
+    with col_o:
+        if st.button("Sign out", use_container_width=True):
+            st.logout()
 
     st.markdown(
         '<div style="margin-top:1.5rem;padding-top:0.75rem;border-top:1px solid #e8e5e0;'
@@ -392,7 +476,7 @@ else:
     )
     st.divider()
 
-    for item in st.session_state.chat_display:
+    for idx, item in enumerate(st.session_state.chat_display):
         with st.chat_message(item["role"], avatar="🏥" if item["role"] == "assistant" else None):
             if item.get("tools_used"):
                 tool_sources = set()
@@ -414,6 +498,13 @@ else:
 
             if item["role"] == "assistant" and item.get("content"):
                 copy_button(item["content"])
+                _msg_id = st.session_state.message_ids.get(idx)
+                if _msg_id:
+                    render_feedback_buttons(
+                        msg_index=idx,
+                        message_id=_msg_id,
+                        user_id=st.session_state.db_user_id,
+                    )
 
 # ── Input ──────────────────────────────────────────────────────────────────────
 
@@ -436,8 +527,7 @@ if prompt:
         context = _build_classifier_context(prior)
         try:
             intent = run_async(classify_intent(prompt, context))
-        except Exception as e:
-            print(f"[classifier] fallback to research — {e}")
+        except Exception:
             intent = "research"
     else:
         intent = "research"
@@ -466,11 +556,46 @@ if prompt:
             st.session_state.lc_messages = result["messages"]
         elif full_response:
             st.session_state.lc_messages.append(AIMessage(content=full_response))
+
+        # Persist user message (appended to chat_display before routing)
+        _user_idx = len(st.session_state.chat_display) - 1
+        if st.session_state.db_session_id and _user_idx not in st.session_state.message_ids:
+            try:
+                _uid = save_message(
+                    session_id=st.session_state.db_session_id,
+                    msg_index=_user_idx,
+                    role="user",
+                    content=prompt,
+                    tools_used=[],
+                    sources=[],
+                )
+                st.session_state.message_ids[_user_idx] = _uid
+                if _user_idx == 0:
+                    set_session_title(st.session_state.db_session_id, prompt)
+            except Exception:
+                pass
+
+        # Append and persist assistant message
         st.session_state.chat_display.append({
             "role": "assistant",
             "content": full_response,
             "tools_used": tools_called,
             "sources": list(sources),
         })
+        _asst_idx = len(st.session_state.chat_display) - 1
+        if st.session_state.db_session_id:
+            try:
+                _aid = save_message(
+                    session_id=st.session_state.db_session_id,
+                    msg_index=_asst_idx,
+                    role="assistant",
+                    content=full_response,
+                    tools_used=tools_called,
+                    sources=list(sources),
+                )
+                st.session_state.message_ids[_asst_idx] = _aid
+            except Exception:
+                pass
+
         st.session_state.play_done_sound = True
         st.rerun()

@@ -390,6 +390,30 @@ def get_css() -> str:
         }}
     }}
 
+    /* ── Feedback buttons ────────────────────────────────────────────────── */
+    [data-testid="stChatMessage"] .stButton > button {{
+        background: transparent !important;
+        border: 1px solid {COLOR_BORDER} !important;
+        color: {COLOR_TEXT_MUTED} !important;
+        font-size: 0.8rem !important;
+        padding: 2px 8px !important;
+        border-radius: 20px !important;
+        min-height: unset !important;
+        height: 28px !important;
+        line-height: 1 !important;
+    }}
+    [data-testid="stChatMessage"] .stButton > button:hover {{
+        background: #f1f5f9 !important;
+        border-color: {COLOR_SECONDARY} !important;
+        color: {COLOR_PRIMARY} !important;
+    }}
+
+    /* ── Ribbon right (user email) ────────────────────────────────────────── */
+    .ent-ribbon-right {{
+        font-size: 0.75rem; color: rgba(241,245,249,0.75);
+        font-family: {FONT_BODY};
+    }}
+
     /* ── Sidebar enterprise elements ──────────────────────────────────────── */
     .src-status {{
         display: flex; align-items: center; gap: 0.5rem;

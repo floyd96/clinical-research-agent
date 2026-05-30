@@ -15,6 +15,7 @@ from config import (
     LS_KEY, BRAND_NAME, COLOR_PRIMARY,
     COLOR_CT_TEXT, COLOR_CT_BORDER,
     COLOR_PM_TEXT, COLOR_PM_BORDER,
+    COLOR_TEXT_MUTED,
 )
 
 # ── Audio snippets (Web Audio API — zero dependencies) ───────────────────────
@@ -134,8 +135,9 @@ SCROLL_BTN_HIDE = """
 """
 
 
-def get_ribbon_js() -> str:
-    """Enterprise ribbon — Mayo branding, no fake user persona."""
+def get_ribbon_js(user_display: str = "") -> str:
+    """Enterprise ribbon — Mayo branding with optional signed-in user display."""
+    user_html = f'<span class="ent-ribbon-right">{user_display}</span>' if user_display else ""
     return f"""
 <script>
 (function(){{
@@ -146,7 +148,8 @@ def get_ribbon_js() -> str:
     el.className = 'ent-ribbon';
     el.innerHTML = '<div class="ent-ribbon-left">'
         + '<span class="ent-brand">{BRAND_NAME}</span>'
-        + '</div>';
+        + '</div>'
+        + '{user_html}';
     p.document.body.prepend(el);
 }})();
 </script>
@@ -169,6 +172,28 @@ def copy_button(text: str) -> None:
     clean = re.sub(r'\n{3,}', '\n\n', clean).strip()
     with st.expander("📋 Copy response"):
         st.code(clean, language=None, wrap_lines=True)
+
+
+def render_feedback_buttons(msg_index: int, message_id: str, user_id: str) -> None:
+    """Render 👍/👎 buttons below an assistant message. Persists vote to Supabase."""
+    from db import upsert_feedback  # local import to avoid circular dep at module level
+
+    current = st.session_state.feedback_given.get(message_id)
+    col_up, col_dn, _ = st.columns([1, 1, 10])
+
+    with col_up:
+        label_up = "👍✓" if current == "up" else "👍"
+        if st.button(label_up, key=f"fb_up_{msg_index}_{message_id[:8]}", help="Helpful response"):
+            upsert_feedback(message_id=message_id, user_id=user_id, vote="up")
+            st.session_state.feedback_given[message_id] = "up"
+            st.rerun()
+
+    with col_dn:
+        label_dn = "👎✓" if current == "down" else "👎"
+        if st.button(label_dn, key=f"fb_dn_{msg_index}_{message_id[:8]}", help="Unhelpful response"):
+            upsert_feedback(message_id=message_id, user_id=user_id, vote="down")
+            st.session_state.feedback_given[message_id] = "down"
+            st.rerun()
 
 
 def render_sources(sources: list) -> None:
