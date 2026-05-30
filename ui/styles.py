@@ -268,6 +268,14 @@ def get_css() -> str:
         white-space: pre-wrap !important; word-break: break-word !important;
     }}
 
+    /* ── Accessibility: visible focus states ─────────────────────────────── */
+    a:focus-visible, button:focus-visible,
+    [role="button"]:focus-visible, input:focus-visible, textarea:focus-visible {{
+        outline: 2px solid {COLOR_PRIMARY} !important;
+        outline-offset: 2px !important;
+        border-radius: 4px;
+    }}
+
     /* ── Toolbar hidden ───────────────────────────────────────────────────── */
     [data-testid="stToolbar"]   {{ display: none !important; }}
     [data-testid="stDecoration"] {{ display: none !important; }}

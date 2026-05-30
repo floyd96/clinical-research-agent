@@ -19,8 +19,8 @@ COLOR_SURFACE          = "#FFFFFF"   # Card / panel surface
 COLOR_BORDER           = "#E2E8F0"   # Neutral border
 COLOR_TEXT_BODY        = "#1e293b"   # Body text
 COLOR_TEXT_MUTED       = "#64748b"   # Secondary / muted text
-COLOR_USER_MSG_BG      = "#dbeafe"   # User message bubble background
-COLOR_USER_MSG_BORDER  = "#bfdbfe"   # User message bubble border
+COLOR_USER_MSG_BG      = "#f1f5f9"   # User message bubble background — neutral, not blue (blue = links only)
+COLOR_USER_MSG_BORDER  = "#e2e8f0"   # User message bubble border
 
 # CT badge — Mayo blue family
 COLOR_CT_BG            = "#dbeafe"
