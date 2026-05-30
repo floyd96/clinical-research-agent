@@ -105,15 +105,15 @@ SCROLL_BTN_SHOW = """
     btn.onmouseout  = function(){ btn.style.opacity='0.82'; };
     btn.onclick = function(){
         var doc = p.document;
-        var best = null; var bestH = 0;
-        doc.querySelectorAll('section, div, main, article').forEach(function(el){
-            var ov = p.getComputedStyle(el).overflowY;
-            if ((ov === 'auto' || ov === 'scroll') && el.scrollHeight > bestH) {
-                bestH = el.scrollHeight; best = el;
-            }
-        });
-        if (best) { best.scrollTop = best.scrollHeight; }
-        ['[data-testid="stAppViewContainer"]','[data-testid="stMain"]','.main'].forEach(function(s){
+        // Primary: scroll last chat message into view
+        var msgs = doc.querySelectorAll('[data-testid="stChatMessage"]');
+        if (msgs.length > 0) {
+            msgs[msgs.length - 1].scrollIntoView({behavior:'smooth', block:'end'});
+            return;
+        }
+        // Fallback: scroll known Streamlit containers + window
+        ['[data-testid="stMain"]','[data-testid="stAppViewContainer"]',
+         '[data-testid="stMainBlockContainer"]','.main'].forEach(function(s){
             var el = doc.querySelector(s);
             if (el) el.scrollTop = el.scrollHeight;
         });

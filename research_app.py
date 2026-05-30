@@ -5,6 +5,7 @@ import re
 from datetime import datetime
 
 import streamlit as st
+from streamlit_javascript import st_javascript
 from langchain.agents import create_agent
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
@@ -240,13 +241,38 @@ def run_agent(messages, status_container, response_placeholder):
 st.set_page_config(page_title=PAGE_TITLE, page_icon=PAGE_ICON, layout="wide")
 
 # ── Authentication gate ────────────────────────────────────────────────────────
-# Cache identity into session_state when st.user is live (first rerun after OAuth).
-# st_javascript reruns on Streamlit Cloud do not carry the auth cookie, so
-# is_logged_in flips to False on those reruns. _auth_ok persists through them.
+# On OAuth callback: st.user.is_logged_in = True. Capture identity into
+# session_state immediately. _auth_ok then persists through st_javascript reruns
+# so the user isn't bounced back to login during normal UI operation.
 if getattr(st.user, "is_logged_in", False):
     st.session_state._auth_ok    = True
     st.session_state._auth_email = getattr(st.user, "email", "") or ""
     st.session_state._auth_name  = getattr(st.user, "name",  None)
+    st.session_state._save_auth  = True
+
+# Restore auth from localStorage on page reload.
+# Also clears both keys if cri_signed_out is set (ensures logout is clean).
+if not st.session_state.get("_auth_ok", False):
+    _stored_auth = st_javascript(
+        "(function(){try{"
+        "var p=window.parent||window;"
+        "if(p.localStorage.getItem('cri_signed_out')){"
+        "p.localStorage.removeItem('cri_signed_out');"
+        "p.localStorage.removeItem('cri_auth');"
+        "return 'null';}"
+        "return p.localStorage.getItem('cri_auth')||'null';"
+        "}catch(e){return 'null';}})()"
+    )
+    if isinstance(_stored_auth, str) and _stored_auth not in ("null", "undefined", "", "0"):
+        try:
+            _stored = json.loads(_stored_auth)
+            if _stored.get("email"):
+                st.session_state._auth_ok    = True
+                st.session_state._auth_email = _stored["email"]
+                st.session_state._auth_name  = _stored.get("name", "")
+                st.rerun()
+        except Exception:
+            pass
 
 if not st.session_state.get("_auth_ok", False):
     _, col_c, _ = st.columns([1, 2, 1])
@@ -267,10 +293,27 @@ _user_email = st.session_state.get("_auth_email", "")
 if _user_email.lower() not in [e.lower() for e in BETA_WHITELIST]:
     st.error(AUTH_DENIED_MSG)
     if st.button("Sign out"):
+        st.components.v1.html(
+            "<script>try{var p=window.parent||window;"
+            "p.localStorage.setItem('cri_signed_out','1');"
+            "p.localStorage.removeItem('cri_auth');}catch(e){}</script>",
+            height=0,
+        )
         st.logout()
     st.stop()
 
 st.markdown(get_css(), unsafe_allow_html=True)
+
+# Persist auth to localStorage after first login so reload restores the session
+if st.session_state.pop("_save_auth", False):
+    _auth_payload = json.dumps({
+        "email": st.session_state._auth_email,
+        "name":  st.session_state._auth_name,
+    })
+    st.components.v1.html(
+        f'<script>try{{(window.parent||window).localStorage.setItem("cri_auth",{json.dumps(_auth_payload)});}}catch(e){{}}</script>',
+        height=0,
+    )
 
 agent, all_tools = get_agent()
 
@@ -422,6 +465,12 @@ with st.sidebar:
         st.caption(f"Signed in as {st.session_state.get('_auth_email', '')}")
     with col_o:
         if st.button("Sign out", use_container_width=True):
+            st.components.v1.html(
+                "<script>try{var p=window.parent||window;"
+                "p.localStorage.setItem('cri_signed_out','1');"
+                "p.localStorage.removeItem('cri_auth');}catch(e){}</script>",
+                height=0,
+            )
             st.logout()
 
     st.markdown(

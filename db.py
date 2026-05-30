@@ -1,20 +1,21 @@
 """
 Supabase persistence layer.
 
-One connection per process via @st.cache_resource.
+One connection per process via @lru_cache.
 All functions are synchronous — the supabase-py SDK is sync by default.
 """
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from functools import lru_cache
 from typing import Optional
 
 import streamlit as st
 from supabase import create_client, Client
 
 
-@st.cache_resource
+@lru_cache(maxsize=1)
 def _get_client() -> Client:
     url: str = st.secrets["supabase"]["url"]
     key: str = st.secrets["supabase"]["service_role_key"]
