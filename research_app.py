@@ -350,8 +350,11 @@ if not st.session_state.db_initialized:
     st.session_state.db_session_id = create_session(_uid)
     st.session_state.db_initialized = True
 
-# ── Server-side hour for greeting ─────────────────────────────────────────────
-_hour = datetime.now().hour
+# ── Browser-local hour for greeting ───────────────────────────────────────────
+# Safe to use st_javascript here — _auth_ok is already True, so this rerun
+# cannot bounce the auth gate. +1 sentinel distinguishes placeholder (0) from midnight.
+_js_hour = st_javascript("new Date().getHours() + 1")
+_hour = (int(_js_hour) - 1) if isinstance(_js_hour, (int, float)) and 1 <= _js_hour <= 24 else datetime.now().hour
 _name_raw  = st.session_state.get("_auth_name") or ""
 _email_raw = st.session_state.get("_auth_email") or ""
 _first_name = (_name_raw.split()[0] if _name_raw.strip()

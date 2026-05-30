@@ -105,19 +105,19 @@ SCROLL_BTN_SHOW = """
     btn.onmouseout  = function(){ btn.style.opacity='0.82'; };
     btn.onclick = function(){
         var doc = p.document;
-        // Primary: scroll last chat message into view
+        // Scroll last chat message into view (no early return — let all methods fire)
         var msgs = doc.querySelectorAll('[data-testid="stChatMessage"]');
         if (msgs.length > 0) {
-            msgs[msgs.length - 1].scrollIntoView({behavior:'smooth', block:'end'});
-            return;
+            try { msgs[msgs.length - 1].scrollIntoView({behavior:'smooth', block:'end'}); } catch(e) {}
         }
-        // Fallback: scroll known Streamlit containers + window
+        // Also directly scroll all known Streamlit scroll containers
         ['[data-testid="stMain"]','[data-testid="stAppViewContainer"]',
-         '[data-testid="stMainBlockContainer"]','.main'].forEach(function(s){
+         '[data-testid="stMainBlockContainer"]','section[tabindex="0"]','.main'].forEach(function(s){
             var el = doc.querySelector(s);
             if (el) el.scrollTop = el.scrollHeight;
         });
         p.scrollTo(0, doc.documentElement.scrollHeight);
+        p.scrollTo(0, doc.body ? doc.body.scrollHeight : 0);
     };
     p.document.body.appendChild(btn);
 })();
