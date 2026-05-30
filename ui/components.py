@@ -97,10 +97,9 @@ SCROLL_BTN_SHOW = """
     btn.title = 'Scroll to bottom';
     btn.innerHTML = '&#8595;';
     btn.style.cssText = 'position:fixed;bottom:90px;right:20px;width:40px;height:40px;'
-        + 'border-radius:50%;background:__PRIMARY__;color:#fff;border:none;cursor:pointer;'
-        + 'font-size:20px;font-weight:700;box-shadow:0 3px 12px rgba(0,0,0,0.25);'
-        + 'z-index:99999;opacity:0.92;transition:opacity 0.2s;';
-    btn.style.cssText = btn.style.cssText.replace('__PRIMARY__', '__COLOR__');
+        + 'border-radius:50%;background:__COLOR__;color:#fff;border:2px solid rgba(255,255,255,0.7);cursor:pointer;'
+        + 'font-size:20px;font-weight:700;box-shadow:0 3px 14px rgba(14,50,147,0.45);'
+        + 'z-index:99999;opacity:0.95;transition:opacity 0.2s;';
     btn.onmouseover = function(){ btn.style.opacity='1'; };
     btn.onmouseout  = function(){ btn.style.opacity='0.82'; };
     btn.onclick = function(){
