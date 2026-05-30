@@ -352,7 +352,11 @@ if not st.session_state.db_initialized:
 
 # ── Server-side hour for greeting ─────────────────────────────────────────────
 _hour = datetime.now().hour
-_first_name = (st.session_state.get("_auth_name") or st.session_state.get("_auth_email") or "").split()[0]
+_name_raw  = st.session_state.get("_auth_name") or ""
+_email_raw = st.session_state.get("_auth_email") or ""
+_first_name = (_name_raw.split()[0] if _name_raw.strip()
+               else _email_raw.split("@")[0] if _email_raw
+               else "Researcher")
 _greeting = f"Good {'morning' if _hour < 12 else 'afternoon' if _hour < 17 else 'evening'}, {_first_name}."
 
 # ── Restore history from Supabase ─────────────────────────────────────────────
