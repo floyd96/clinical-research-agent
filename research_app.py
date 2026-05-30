@@ -216,7 +216,17 @@ def run_agent(messages, status_container, response_placeholder):
             if future.done():
                 break
 
-    future.result()
+    exc = future.exception()
+    if exc is not None:
+        if not full_response:
+            full_response = (
+                "⚠️ A data source returned an error for this query.\n\n"
+                f"**Detail:** `{str(exc)[:400]}`\n\n"
+                "Try rephrasing your query, or narrow it to a single source "
+                "(e.g. ask about trials only, or literature only)."
+            )
+            response_placeholder.markdown(full_response)
+        status_container.update(label="Error", state="error", expanded=False)
     return result, tools_called, full_response, sources
 
 

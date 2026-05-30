@@ -101,4 +101,16 @@ QUESTION_POOL = [
         "Compare the trial landscape and published outcomes for SGLT2 inhibitors in "
         "heart failure.",
     ),
+
+    # ── Competitive landscape ─────────────────────────────────────────────
+    (
+        "🏥 + 📚",
+        "Competitive landscape for checkpoint inhibitors in NSCLC — which sponsors lead "
+        "trial activity and what does the published evidence show?",
+    ),
+    (
+        "🏥",
+        "Which sponsors and institutions dominate Alzheimer's disease trial activity "
+        "globally, and what phases are they running?",
+    ),
 ]
