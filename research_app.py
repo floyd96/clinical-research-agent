@@ -12,7 +12,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from config import (
     CLINICALTRIALS_MCP_URL, PUBMED_MCP_URL,
     PAGE_TITLE, PAGE_ICON,
-    BRAND_NAME, BRAND_TAGLINE, COLOR_PRIMARY,
+    BRAND_TAGLINE, COLOR_PRIMARY,
     CHAT_PLACEHOLDER, STATUS_RETRIEVING, SECTION_SUGGESTIONS,
     EXPORT_BUTTON_LABEL, CLEAR_BUTTON_LABEL, EXPORT_PDF_TIP,
     SIDEBAR_SOURCES_HDR, SIDEBAR_RETRIEVED_HDR,
@@ -420,13 +420,6 @@ if st.session_state.pop("clear_storage", False):
     clear_session_storage()
 
 st.components.v1.html(INIT_PARENT, height=0)
-st.markdown(
-    f'<div class="ent-ribbon">'
-    f'<div class="ent-ribbon-left"><span class="ent-brand">{BRAND_NAME}</span></div>'
-    f'<span class="ent-ribbon-right">{st.session_state.get("_auth_email", "")}</span>'
-    f'</div>',
-    unsafe_allow_html=True,
-)
 
 if st.session_state.pop("play_done_sound", False):
     play(SOUND_DONE)

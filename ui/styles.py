@@ -38,41 +38,21 @@ def get_css() -> str:
         }}
     }}
 
-    /* ── Enterprise ribbon ───────────────────────────────────────────────── */
-    .ent-ribbon {{
-        position: fixed; top: 0; left: 0; right: 0; height: 52px;
-        background: {COLOR_PRIMARY};
-        display: flex; align-items: center;
-        justify-content: space-between; padding: 0 1.25rem;
-        z-index: 10000; box-shadow: 0 1px 4px rgba(0,0,0,0.25);
-        font-family: {FONT_BODY};
-    }}
-    .ent-ribbon-left {{ display: flex; align-items: center; gap: 1rem; }}
-    .ent-brand {{
-        font-size: 0.875rem; font-weight: 600; color: #f1f5f9;
-        letter-spacing: -0.01em;
-        font-family: {FONT_HEADING};
-    }}
-    [data-testid="stSidebar"] {{
-        top: 52px !important;
-        z-index: 999 !important;
-    }}
-
     /* ── Layout ──────────────────────────────────────────────────────────── */
     [data-testid="stMainBlockContainer"] {{
         max-width: 840px;
         margin: 0 auto;
-        padding: 4.5rem 2rem 6rem;
+        padding: 1.5rem 2rem 6rem;
     }}
     @media (max-width: 768px) {{
         [data-testid="stMainBlockContainer"] {{
-            padding: 4.5rem 0.5rem 4rem;
+            padding: 3rem 0.5rem 4rem;
             max-width: 100%;
         }}
     }}
     @media (max-width: 480px) {{
         [data-testid="stMainBlockContainer"] {{
-            padding: 4rem 0.25rem 4rem;
+            padding: 2.75rem 0.25rem 4rem;
         }}
     }}
 
@@ -283,6 +263,31 @@ def get_css() -> str:
     [data-testid="stToolbar"]   {{ display: none !important; }}
     [data-testid="stDecoration"] {{ display: none !important; }}
 
+    /* ── Brand ribbon: Streamlit's own header styled as Mayo ribbon ──────── */
+    [data-testid="stHeader"] {{
+        background: {COLOR_PRIMARY} !important;
+        height: 52px !important;
+        position: relative !important;
+    }}
+    [data-testid="stHeader"]::before {{
+        content: "Mayo Clinic Research Assistant";
+        position: absolute;
+        left: 50%; top: 50%;
+        transform: translate(-50%, -50%);
+        color: #f1f5f9;
+        font-weight: 600; font-size: 0.875rem;
+        font-family: {FONT_HEADING};
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+        pointer-events: none;
+    }}
+    [data-testid="stHeader"] button {{
+        color: rgba(241,245,249,0.85) !important;
+    }}
+    [data-testid="stHeader"] button svg {{
+        fill: rgba(241,245,249,0.85) !important;
+    }}
+
     /* ── Sidebar ──────────────────────────────────────────────────────────── */
     [data-testid="stSidebar"] {{
         background: #faf9f7; border-right: 1px solid #e8e5e0;
@@ -408,12 +413,6 @@ def get_css() -> str:
         color: {COLOR_PRIMARY} !important;
     }}
 
-    /* ── Ribbon right (user email) ────────────────────────────────────────── */
-    .ent-ribbon-right {{
-        font-size: 0.75rem; color: rgba(241,245,249,0.75);
-        font-family: {FONT_BODY};
-    }}
-
     /* ── Sidebar enterprise elements ──────────────────────────────────────── */
     .src-status {{
         display: flex; align-items: center; gap: 0.5rem;
@@ -428,12 +427,6 @@ def get_css() -> str:
         border-left: 2px solid {COLOR_BORDER};
         margin: 0.15rem 0;
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }}
-
-    /* ── Sidebar toggle button — must clear the 52px ribbon ──────────────── */
-    [data-testid="stSidebarCollapsedControl"] {{
-        top: 58px !important;
-        z-index: 10001 !important;
     }}
 
     /* ── Compact sidebar buttons (Past Sessions list) ─────────────────────── */
