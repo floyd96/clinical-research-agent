@@ -1,33 +1,43 @@
 (function () {
+    // Single shared AudioContext — browsers cap total contexts at ~6, so
+    // creating a new one per sound silently fails after a few messages.
+    var _audioCtx = null;
+    function _getCtx() {
+        if (!_audioCtx) {
+            try { _audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+            catch (e) { return null; }
+        }
+        if (_audioCtx.state === 'suspended') { _audioCtx.resume(); }
+        return _audioCtx;
+    }
+
     function playSend() {
+        var ctx = _getCtx();
+        if (!ctx) return;
         try {
-            var ctx = new (window.AudioContext || window.webkitAudioContext)();
-            ctx.resume().then(function () {
-                var osc = ctx.createOscillator(), gain = ctx.createGain();
-                osc.connect(gain); gain.connect(ctx.destination);
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(440, ctx.currentTime);
-                osc.frequency.linearRampToValueAtTime(520, ctx.currentTime + 0.06);
-                gain.gain.setValueAtTime(0.04, ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
-                osc.start(); osc.stop(ctx.currentTime + 0.1);
-            });
+            var osc = ctx.createOscillator(), gain = ctx.createGain();
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(440, ctx.currentTime);
+            osc.frequency.linearRampToValueAtTime(520, ctx.currentTime + 0.06);
+            gain.gain.setValueAtTime(0.04, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+            osc.start(); osc.stop(ctx.currentTime + 0.1);
         } catch (e) {}
     }
 
     function playDone() {
+        var ctx = _getCtx();
+        if (!ctx) return;
         try {
-            var ctx = new (window.AudioContext || window.webkitAudioContext)();
-            ctx.resume().then(function () {
-                [[660, 0], [880, 0.12]].forEach(function (p) {
-                    var osc = ctx.createOscillator(), gain = ctx.createGain();
-                    osc.connect(gain); gain.connect(ctx.destination);
-                    osc.type = 'sine'; osc.frequency.value = p[0];
-                    var t = ctx.currentTime + p[1];
-                    gain.gain.setValueAtTime(0.05, t);
-                    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
-                    osc.start(t); osc.stop(t + 0.4);
-                });
+            [[660, 0], [880, 0.12]].forEach(function (p) {
+                var osc = ctx.createOscillator(), gain = ctx.createGain();
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.type = 'sine'; osc.frequency.value = p[0];
+                var t = ctx.currentTime + p[1];
+                gain.gain.setValueAtTime(0.05, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+                osc.start(t); osc.stop(t + 0.4);
             });
         } catch (e) {}
     }
@@ -49,30 +59,28 @@
     setTimeout(hideThemeToggle, 500);
     setTimeout(hideThemeToggle, 2000);
 
-    function getFirstName() {
-        try {
-            var token = localStorage.getItem('token');
-            if (token) {
-                var parts = token.split('.');
-                if (parts.length >= 2) {
-                    var padded = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-                    while (padded.length % 4) padded += '=';
-                    var payload = JSON.parse(atob(padded));
-                    var id = payload.identifier || payload.sub || '';
-                    if (id.includes('@')) id = id.split('@')[0];
-                    if (id) return id.charAt(0).toUpperCase() + id.slice(1);
-                }
-            }
-        } catch(e) {}
-        return '';
+    function _nameFromEmail(email) {
+        if (!email || !email.includes('@')) return '';
+        var local = email.split('@')[0].split('.')[0].replace(/[^a-zA-Z]/g, '');
+        return local ? local.charAt(0).toUpperCase() + local.slice(1).toLowerCase() : '';
     }
 
-    var _greetingText = (function() {
-        var hour = new Date().getHours();
-        var period = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
-        var name = getFirstName();
-        return name ? 'Good ' + period + ', ' + name + '.' : 'Good ' + period + '.';
-    })();
+    function _timePeriod() {
+        var h = new Date().getHours();
+        return h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening';
+    }
+
+    function fetchAndUpdateGreeting(el) {
+        fetch('/user', { credentials: 'include' })
+            .then(function(r) { return r.ok ? r.json() : null; })
+            .then(function(data) {
+                if (!data) return;
+                var name = _nameFromEmail(data.identifier || data.email || '');
+                if (!name) return;
+                el.textContent = 'Good ' + _timePeriod() + ', ' + name + '.';
+            })
+            .catch(function() {});
+    }
 
     function injectGreeting() {
         if (document.getElementById('cl-greeting')) return;
@@ -80,11 +88,39 @@
         if (!ws) return;
         var img = ws.querySelector('img');
         if (!img) return;
+
         var el = document.createElement('p');
         el.id = 'cl-greeting';
-        el.textContent = _greetingText;
-        el.style.cssText = 'font-size:18px;font-weight:500;color:#475569;margin:0 0 8px 0;text-align:center;font-family:Inter,sans-serif;width:100%;';
+        el.textContent = 'Good ' + _timePeriod() + '.';
+        fetchAndUpdateGreeting(el);
+        el.style.cssText = [
+            'font-size:34px',
+            'font-weight:700',
+            'color:#0E3293',
+            'margin:0 0 6px 0',
+            'text-align:center',
+            'font-family:Inter,sans-serif',
+            'width:100%',
+            'letter-spacing:-0.02em',
+            'line-height:1.2'
+        ].join(';') + ';';
         img.insertAdjacentElement('afterend', el);
+
+        if (!document.getElementById('cl-greeting-sub')) {
+            var sub = document.createElement('p');
+            sub.id = 'cl-greeting-sub';
+            sub.textContent = 'What would you like to research today?';
+            sub.style.cssText = [
+                'font-size:15px',
+                'font-weight:400',
+                'color:#6B7280',
+                'margin:0 0 24px 0',
+                'text-align:center',
+                'font-family:Inter,sans-serif',
+                'width:100%'
+            ].join(';') + ';';
+            el.insertAdjacentElement('afterend', sub);
+        }
     }
     injectGreeting();
     setTimeout(injectGreeting, 500);
@@ -115,15 +151,25 @@
     setTimeout(injectDataSourceBadge, 500);
     setTimeout(injectDataSourceBadge, 2000);
 
-    var uCount = 0, aCount = 0;
+    // Send sound: click on #chat-submit.
+    // Done sound: #stop-button disappearing (Chainlit swaps submit↔stop during streaming).
+    function wireAudio() {
+        var btn = document.getElementById('chat-submit');
+        if (!btn || btn._clWired) return;
+        btn._clWired = true;
+        btn.addEventListener('click', playSend);
+    }
+    wireAudio();
+
+    var _wasStreaming = false;
     new MutationObserver(function () {
         injectGreeting();
         injectDataSourceBadge();
         hideThemeToggle();
         setPlaceholder();
-        var u = document.querySelectorAll('[class*="user-message"], [class*="UserMessage"]').length;
-        var a = document.querySelectorAll('[class*="assistant-message"], [class*="AssistantMessage"]').length;
-        if (u > uCount) { playSend(); uCount = u; }
-        if (a > aCount) { setTimeout(function () { playDone(); aCount = a; }, 800); }
+        wireAudio();
+        var streaming = !!document.getElementById('stop-button');
+        if (_wasStreaming && !streaming) { setTimeout(playDone, 300); }
+        _wasStreaming = streaming;
     }).observe(document.body, { childList: true, subtree: true });
 })();

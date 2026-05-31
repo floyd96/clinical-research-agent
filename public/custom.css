@@ -64,6 +64,9 @@ a { color: #1F497D !important; }
 /* ── Hide logo image on splash, greeting takes its place ───────────────── */
 #welcome-screen img { display: none !important; }
 
+/* ── Push welcome screen content below the header ──────────────────────── */
+#welcome-screen { padding-top: 32px !important; }
+
 /* ── Starter pills — allow full text, no truncation ────────────────────── */
 /* Use #welcome-screen button — stable across Chainlit versions */
 #welcome-screen button,
@@ -102,9 +105,23 @@ textarea::placeholder {
 #cl-datasource-badge .cl-dot { opacity: 0.5; }
 
 /* ── Right evidence side panel ─────────────────────────────────────────── */
-[class*="side-view"], [class*="SideView"],
-[class*="element-side"], [class*="ElementSide"] {
-    background: #FFFFFF !important;
-    border-left: 1px solid #E5E7EB !important;
-    padding: 24px !important;
+/* Chainlit 2.11 uses react-resizable-panels. The side panel is a data-panel
+   with an inline flex:40 1 0px (= 40% of viewport). Override to fixed width. */
+div[data-panel]:has(#side-view-title) {
+    flex: 0 0 300px !important;
+}
+
+/* The inner <aside> has hardcoded mr-4 mb-4 — the mr-4 is the right-side gap. */
+aside:has(#side-view-title) {
+    margin-right: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+/* Collapse the drag handle strip between chat and panel. */
+[data-panel-resize-handle-id],
+[data-resize-handle] {
+    width: 0 !important;
+    min-width: 0 !important;
+    flex: 0 0 0 !important;
+    overflow: hidden !important;
 }

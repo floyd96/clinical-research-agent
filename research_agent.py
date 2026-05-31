@@ -2,7 +2,7 @@ import asyncio
 import os
 
 from dotenv import load_dotenv
-from langchain_groq import ChatGroq
+from langchain_openai import ChatOpenAI
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.prebuilt import create_react_agent
 from langchain_mcp_adapters.client import MultiServerMCPClient
@@ -17,17 +17,17 @@ load_dotenv()
 
 # ── LLM endpoints ─────────────────────────────────────────────────────────────
 
-model = ChatGroq(
+model = ChatOpenAI(
     model=MODEL_ID,
-    api_key=os.getenv("GROQ_API_KEY"),
+    api_key=os.getenv("OPENAI_API_KEY"),
     temperature=0,
     max_tokens=MAIN_MAX_TOKENS,
 )
 
-# Separate smaller model for intent classification — one-word output only.
-classifier_model = ChatGroq(
+# Separate model call for intent classification — one-word output only.
+classifier_model = ChatOpenAI(
     model=CLASSIFIER_MODEL_ID,
-    api_key=os.getenv("GROQ_API_KEY"),
+    api_key=os.getenv("OPENAI_API_KEY"),
     temperature=0,
     max_tokens=CLASSIFIER_MAX_TOKENS,
 )

@@ -2,7 +2,7 @@ chainlit==2.11.0
 langgraph>=1.2.2
 langchain>=0.3.0
 langchain-core>=0.3.0
-langchain-groq>=0.1.0
+langchain-openai>=0.3.0
 langchain-mcp-adapters>=0.1.0
 python-dotenv>=1.0.0
 supabase>=2.4.0

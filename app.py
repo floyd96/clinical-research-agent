@@ -1,4 +1,4 @@
-import os
+import asyncio
 import re
 import random
 from typing import Optional
@@ -21,8 +21,7 @@ from langchain_mcp_adapters.client import MultiServerMCPClient
 _log = logging.getLogger(__name__)
 
 from config import (
-    CLINICALTRIALS_MCP_URL, PUBMED_MCP_URL,
-    BRAND_TAGLINE, BETA_WHITELIST,
+    CLINICALTRIALS_MCP_URL, PUBMED_MCP_URL, BETA_WHITELIST,
 )
 from db import (
     upsert_user, create_session, set_session_title,
@@ -80,36 +79,44 @@ async def set_starters():
     ]
 
 
+# Module-level agent singleton — MCP tools fetched once per server lifetime,
+# not on every session start. Eliminates 15-20s reload latency.
+_shared_agent = None
+
+
 # ── Session start ──────────────────────────────────────────────────────────────
 
 @cl.on_chat_start
 async def on_chat_start():
+    global _shared_agent
+
     user = cl.user_session.get("user")
     email = user.identifier if user else ""
     first_name = email.split("@")[0].capitalize()
 
-    uid = upsert_user(email=email, display_name=first_name)
+    # Supabase SDK is synchronous — run off the event loop so it doesn't block
+    # other sessions' streaming during the HTTP round trip.
+    uid = await asyncio.to_thread(upsert_user, email=email, display_name=first_name)
+    sid = await asyncio.to_thread(create_session, uid)  # auto-generated ID, no FK conflicts
 
-    # Auto-generated session ID — safe, no FK conflicts
-    sid = create_session(uid)
-
-    cl.user_session.set("db_user_id", uid)
     cl.user_session.set("db_session_id", sid)
     cl.user_session.set("lc_messages", [])
     cl.user_session.set("turn", 0)
 
-    try:
-        client = MultiServerMCPClient({
-            "clinicaltrials": {"url": CLINICALTRIALS_MCP_URL, "transport": "streamable_http"},
-            "pubmed":         {"url": PUBMED_MCP_URL,         "transport": "streamable_http"},
-        })
-        mcp_tools = await client.get_tools()
-        agent = create_react_agent(model, mcp_tools, prompt=SYSTEM_PROMPT)
-        cl.user_session.set("agent", agent)
-        _log.info("Agent initialised with %d tools", len(mcp_tools))
-    except Exception as exc:
-        _log.error("on_chat_start failed: %r", exc)
-        raise
+    if _shared_agent is None:
+        try:
+            client = MultiServerMCPClient({
+                "clinicaltrials": {"url": CLINICALTRIALS_MCP_URL, "transport": "streamable_http"},
+                "pubmed":         {"url": PUBMED_MCP_URL,         "transport": "streamable_http"},
+            })
+            mcp_tools = await client.get_tools()
+            _shared_agent = create_react_agent(model, mcp_tools, prompt=SYSTEM_PROMPT)
+            _log.info("Agent initialised with %d tools", len(mcp_tools))
+        except Exception as exc:
+            _log.error("on_chat_start failed: %r", exc)
+            raise
+
+    cl.user_session.set("agent", _shared_agent)
 
 
 # ── Message handler ────────────────────────────────────────────────────────────
@@ -123,7 +130,6 @@ async def handle_query(query: str):
     agent   = cl.user_session.get("agent")
     lc_msgs = cl.user_session.get("lc_messages", [])
     sid     = cl.user_session.get("db_session_id")
-    uid     = cl.user_session.get("db_user_id")
     turn    = cl.user_session.get("turn", 0)
 
     if agent is None:
@@ -160,18 +166,18 @@ async def handle_query(query: str):
     msg = cl.Message(content="")
     sources: set[tuple[str, str]] = set()
 
-    # Keep last 4 messages (2 turns) to stay within Groq's 12k token/request limit.
-    # System prompt + 17 tool definitions already consume ~7k tokens.
-    ctx_msgs = lc_msgs[-4:]
+    # Keep last 6 messages (3 turns) — GPT-4o-mini has 128k context, no token pressure.
+    ctx_msgs = lc_msgs[-6:]
 
     if intent == "followup":
         async for chunk in model.astream([SystemMessage(content=SYSTEM_PROMPT)] + ctx_msgs):
             if isinstance(chunk.content, str) and chunk.content:
                 await msg.stream_token(chunk.content)
     else:
-        # Buffer model text — pre-tool reasoning is discarded on each tool_start.
-        # Only the text generated after the final tool completes reaches the user.
-        pending = ""
+        # Stream the answer live. GPT-4o-mini emits no prose between tool calls
+        # (function calling goes straight to the next call), so all model text is
+        # final-answer text and can be streamed token-by-token as it arrives.
+        streamed = False
         try:
             async for event in agent.astream_events(
                 {"messages": ctx_msgs},
@@ -180,7 +186,6 @@ async def handle_query(query: str):
             ):
                 kind = event["event"]
                 if kind == "on_tool_start":
-                    pending = ""  # discard inter-tool reasoning; not the final answer
                     badge = "🏥" if _is_ct_tool(event["name"]) else "📚"
                     try:
                         async with cl.Step(name=f"{badge} {event['name']}", type="tool"):
@@ -197,12 +202,12 @@ async def handle_query(query: str):
                     chunk = event["data"].get("chunk")
                     if (chunk and isinstance(chunk.content, str) and chunk.content
                             and not getattr(chunk, "tool_call_chunks", [])):
-                        pending += chunk.content
+                        await msg.stream_token(chunk.content)
+                        streamed = True
         except Exception as exc:
             _log.error("Agent error: %r", exc)
-        if pending:
-            await msg.stream_token(pending)
-        elif not msg.content:
+
+        if not streamed:
             await msg.stream_token(
                 "The search did not return results. Try narrowing your query "
                 "with a specific condition, drug name, or NCT ID."
@@ -231,16 +236,15 @@ async def handle_query(query: str):
     cl.user_session.set("lc_messages", lc_msgs)
     cl.user_session.set("turn", turn + 1)
 
-    # Persist to Supabase
+    # Persist to Supabase off the event loop (sync SDK would block it otherwise).
     user_idx = turn * 2
     try:
-        save_message(sid, user_idx,     "user",      query,       [],  [])
-        save_message(sid, user_idx + 1, "assistant", msg.content, [], list(sources))
+        await asyncio.to_thread(save_message, sid, user_idx, "user", query, [], [])
+        await asyncio.to_thread(
+            save_message, sid, user_idx + 1, "assistant", msg.content, [], list(sources)
+        )
         if turn == 0:
-            try:
-                set_session_title(sid, query)
-            except Exception:
-                pass
+            await asyncio.to_thread(set_session_title, sid, query)
     except Exception:
         pass
 

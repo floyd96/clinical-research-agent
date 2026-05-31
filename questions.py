@@ -49,9 +49,9 @@ QUESTION_POOL = [
 
     # ── Clinical researcher: literature depth ─────────────────────────────────
     (
-        "📚",
-        "Get the full text of the most recent systematic review on checkpoint inhibitor "
-        "toxicity in solid tumors.",
+        "🏥 + 📚",
+        "What are the most promising active trials and recent research on KRAS-targeted "
+        "therapies in pancreatic cancer — and what does the evidence still not answer?",
     ),
     (
         "📚",
@@ -59,8 +59,9 @@ QUESTION_POOL = [
         "what else has been published in this area?",
     ),
     (
-        "📚",
-        "Are there preprints or ahead-of-print studies on long COVID neurological outcomes?",
+        "🏥",
+        "I have a 47-year-old patient with relapsed multiple myeloma after two prior lines "
+        "of therapy, including a proteasome inhibitor. What trials might they qualify for?",
     ),
     (
         "📚",

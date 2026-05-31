@@ -59,12 +59,10 @@ def create_session(user_id: str) -> str:
     return result.data[0]["id"]
 
 
-
 def set_session_title(session_id: str, first_user_message: str) -> None:
     """Set session title from the first user message (called once, on first turn)."""
     client = _get_client()
     client.table("chat_sessions").update({"title": first_user_message[:120]}).eq("id", session_id).execute()
-
 
 
 # ── chat_messages ─────────────────────────────────────────────────────────────
