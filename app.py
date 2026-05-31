@@ -3,6 +3,14 @@ import re
 import random
 from typing import Optional
 
+# asyncpg default pool size (10) hits Supabase session pooler's 15-connection cap.
+# Cap it at 3 — sufficient for a demo, stays within the free-tier limit.
+import asyncpg as _asyncpg
+_orig_create_pool = _asyncpg.create_pool
+async def _small_pool(dsn=None, *, min_size=10, max_size=10, **kw):
+    return await _orig_create_pool(dsn, min_size=1, max_size=3, **kw)
+_asyncpg.create_pool = _small_pool
+
 import chainlit as cl
 from langchain.agents import create_agent
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
