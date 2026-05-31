@@ -9,27 +9,19 @@ from langchain_mcp_adapters.client import MultiServerMCPClient
 
 from config import (
     CLINICALTRIALS_MCP_URL, PUBMED_MCP_URL,
-    MODEL_ID, CLASSIFIER_MODEL_ID, MAIN_MAX_TOKENS, CLASSIFIER_MAX_TOKENS,
+    MODEL_ID, MAIN_MAX_TOKENS,
 )
 from prompts import SYSTEM_PROMPT
 
 load_dotenv()
 
-# ── LLM endpoints ─────────────────────────────────────────────────────────────
+# ── LLM endpoint ──────────────────────────────────────────────────────────────
 
 model = ChatOpenAI(
     model=MODEL_ID,
     api_key=os.getenv("OPENAI_API_KEY"),
     temperature=0,
     max_tokens=MAIN_MAX_TOKENS,
-)
-
-# Separate model call for intent classification — one-word output only.
-classifier_model = ChatOpenAI(
-    model=CLASSIFIER_MODEL_ID,
-    api_key=os.getenv("OPENAI_API_KEY"),
-    temperature=0,
-    max_tokens=CLASSIFIER_MAX_TOKENS,
 )
 
 # ── CLI runner ────────────────────────────────────────────────────────────────

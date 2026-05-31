@@ -15,7 +15,7 @@ import logging
 
 import chainlit as cl
 from langgraph.prebuilt import create_react_agent
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from langchain_core.messages import HumanMessage, AIMessage
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
 _log = logging.getLogger(__name__)
@@ -29,21 +29,10 @@ from db import (
 )
 from prompts import SYSTEM_PROMPT
 from questions import QUESTION_POOL
-from research_agent import model, classifier_model
+from research_agent import model
 
 
 _CT_KEYWORDS = {"clinical", "trial", "nct", "study"}
-
-# Patterns that are unambiguously new research requests — bypass LLM classifier.
-_FORCE_RESEARCH = re.compile(
-    r'^(find|search|show|list|give\s+me|look\s+up|get|fetch|how\s+many|are\s+there|compare)\b'
-    r'|\b(find|search|show|list|identify|retrieve)\b.{0,60}\b(trial|studi|paper|publication|article|literature|record)\b'
-    r'|\bpublished\s+(paper|studi|article|evidence|literature|result)\b'
-    r'|\bNCT\d{6,8}\b'
-    r'|\b\d{2,3}[\s-]?year[\s-]?old\b'
-    r'|\b(HbA1c|eligib)\b',
-    re.IGNORECASE,
-)
 
 
 def _is_ct_tool(name: str) -> bool:
@@ -140,80 +129,52 @@ async def handle_query(query: str):
 
     lc_msgs.append(HumanMessage(content=query))
 
-    # Intent classification (skip on first turn — always research)
-    intent = "research"
-    if turn > 0:
-        # Fast path: deterministic signals that are unambiguously new data requests.
-        # Topical overlap confuses the LLM classifier, so catch obvious cases first.
-        if not _FORCE_RESEARCH.search(query):
-            ctx = _build_classifier_context(lc_msgs[:-1])
-            try:
-                result = await classifier_model.ainvoke(
-                    f"Classify the new message as 'followup' or 'research'.\n\n"
-                    f"'followup' ONLY when the user explicitly references results already "
-                    f"shown — e.g. 'those trials', 'that study', 'which of those', "
-                    f"'tell me more about that', 'summarise what you found'. "
-                    f"Topical overlap alone is NOT a followup.\n"
-                    f"'research' for any new data request: new condition, drug, patient "
-                    f"profile, trial search, paper search, NCT ID, or PMID lookup.\n\n"
-                    f"Prior context: {ctx}\n"
-                    f"New message: {query}\n\n"
-                    f"Reply with one word only — 'followup' or 'research':"
-                )
-                first = re.split(r'\W+', result.content.strip().lower())[0]
-                intent = "followup" if first == "followup" else "research"
-            except Exception:
-                pass
-
     msg = cl.Message(content="")
     sources: set[tuple[str, str]] = set()
 
     # Keep last 6 messages (3 turns) — GPT-4o-mini has 128k context, no token pressure.
     ctx_msgs = lc_msgs[-6:]
 
-    if intent == "followup":
-        async for chunk in model.astream([SystemMessage(content=SYSTEM_PROMPT)] + ctx_msgs):
-            if isinstance(chunk.content, str) and chunk.content:
-                await msg.stream_token(chunk.content)
-    else:
-        # Stream the answer live. GPT-4o-mini emits no prose between tool calls
-        # (function calling goes straight to the next call), so all model text is
-        # final-answer text and can be streamed token-by-token as it arrives.
-        streamed = False
-        try:
-            async for event in agent.astream_events(
-                {"messages": ctx_msgs},
-                version="v2",
-                config={"recursion_limit": 10},
-            ):
-                kind = event["event"]
-                if kind == "on_tool_start":
-                    badge = "🏥" if _is_ct_tool(event["name"]) else "📚"
-                    try:
-                        async with cl.Step(name=f"{badge} {event['name']}", type="tool"):
-                            pass
-                    except Exception as step_exc:
-                        _log.warning("Step persistence failed (non-fatal): %r", step_exc)
-                elif kind == "on_tool_end":
-                    raw = str(event["data"].get("output", ""))
-                    for nct in re.findall(r'NCT\d{8}', raw):
-                        sources.add(("ct", nct))
-                    for pmid in re.findall(r'(?i)(?:"pmid"|pmid)["\s:]+(\d{6,8})', raw):
-                        sources.add(("pm", pmid))
-                elif kind == "on_chat_model_stream":
-                    chunk = event["data"].get("chunk")
-                    if (chunk and isinstance(chunk.content, str) and chunk.content
-                            and not getattr(chunk, "tool_call_chunks", [])):
-                        await msg.stream_token(chunk.content)
-                        streamed = True
-        except Exception as exc:
-            _log.error("Agent error: %r", exc)
+    # Single path: always run the tool-capable agent. The model decides whether to
+    # call tools (the prompt tells it to skip tools when the answer is already in
+    # context, and to retrieve when a follow-up needs data it doesn't have).
+    # GPT-4o-mini emits no prose between tool calls, so model text is final-answer
+    # text and streams token-by-token as it arrives.
+    streamed = False
+    try:
+        async for event in agent.astream_events(
+            {"messages": ctx_msgs},
+            version="v2",
+            config={"recursion_limit": 10},
+        ):
+            kind = event["event"]
+            if kind == "on_tool_start":
+                badge = "🏥" if _is_ct_tool(event["name"]) else "📚"
+                try:
+                    async with cl.Step(name=f"{badge} {event['name']}", type="tool"):
+                        pass
+                except Exception as step_exc:
+                    _log.warning("Step persistence failed (non-fatal): %r", step_exc)
+            elif kind == "on_tool_end":
+                raw = str(event["data"].get("output", ""))
+                for nct in re.findall(r'NCT\d{8}', raw):
+                    sources.add(("ct", nct))
+                for pmid in re.findall(r'(?i)(?:"pmid"|pmid)["\s:]+(\d{6,8})', raw):
+                    sources.add(("pm", pmid))
+            elif kind == "on_chat_model_stream":
+                chunk = event["data"].get("chunk")
+                if (chunk and isinstance(chunk.content, str) and chunk.content
+                        and not getattr(chunk, "tool_call_chunks", [])):
+                    await msg.stream_token(chunk.content)
+                    streamed = True
+    except Exception as exc:
+        _log.error("Agent error: %r", exc)
 
-        if not streamed:
-            await msg.stream_token(
-                "The search did not return results. Try narrowing your query "
-                "with a specific condition, drug name, or NCT ID."
-            )
+    if not streamed:
+        await msg.stream_token(
+            "The search did not return results. Try narrowing your query "
+            "with a specific condition, drug name, or NCT ID."
+        )
 
     # Render citations inline at the bottom of the message (no side panel).
     if sources:
@@ -246,12 +207,3 @@ async def handle_query(query: str):
             await asyncio.to_thread(set_session_title, sid, query)
     except Exception:
         pass
-
-
-def _build_classifier_context(msgs: list) -> str:
-    parts = []
-    for m in msgs[-6:]:
-        if isinstance(m, AIMessage) and m.content:
-            for heading in re.findall(r'^#{1,3} (.+)$', m.content, re.MULTILINE):
-                parts.append(heading[:60])
-    return "\n".join(parts) if parts else "No prior research context."
