@@ -65,6 +65,8 @@ a { color: #1F497D !important; }
 #welcome-screen img { display: none !important; }
 
 /* ── Starter pills — allow full text, no truncation ────────────────────── */
+/* Use #welcome-screen button — stable across Chainlit versions */
+#welcome-screen button,
 [class*="starter"] button, [class*="Starter"] button {
     white-space: normal !important;
     text-align: left !important;
