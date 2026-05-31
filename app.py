@@ -8,7 +8,7 @@ from typing import Optional
 import asyncpg as _asyncpg
 _orig_create_pool = _asyncpg.create_pool
 async def _small_pool(dsn=None, *, min_size=10, max_size=10, **kw):
-    return await _orig_create_pool(dsn, min_size=1, max_size=3, **kw)
+    return await _orig_create_pool(dsn, min_size=1, max_size=3, statement_cache_size=0, **kw)
 _asyncpg.create_pool = _small_pool
 
 import chainlit as cl
