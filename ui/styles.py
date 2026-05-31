@@ -288,20 +288,40 @@ def get_css() -> str:
         fill: rgba(241,245,249,0.85) !important;
     }}
 
-    /* Sidebar toggle button — lives outside stHeader in the DOM but visually
-       overlaps it; needs explicit white styling + z-index to stay visible */
+    /* Sidebar expand button — force visible, white on blue, always-on opacity */
     [data-testid="stSidebarCollapsedControl"] {{
-        z-index: 10001 !important;
+        position: fixed !important;
+        top: 12px !important;
+        left: 8px !important;
+        z-index: 100000 !important;
+        opacity: 1 !important;
+        display: flex !important;
+        visibility: visible !important;
+    }}
+    [data-testid="stSidebarCollapsedControl"] > * {{
+        opacity: 1 !important;
+        display: flex !important;
+        visibility: visible !important;
     }}
     [data-testid="stSidebarCollapsedControl"] button {{
-        color: rgba(241,245,249,0.85) !important;
-        background: transparent !important;
+        opacity: 1 !important;
+        display: flex !important;
+        visibility: visible !important;
+        color: #ffffff !important;
+        background: rgba(255,255,255,0.18) !important;
+        border: 1px solid rgba(255,255,255,0.35) !important;
+        border-radius: 6px !important;
     }}
-    [data-testid="stSidebarCollapsedControl"] button svg,
-    [data-testid="stSidebarCollapsedControl"] button span {{
-        fill: rgba(241,245,249,0.85) !important;
-        color: rgba(241,245,249,0.85) !important;
-        stroke: rgba(241,245,249,0.85) !important;
+    [data-testid="stSidebarCollapsedControl"] button:hover {{
+        background: rgba(255,255,255,0.28) !important;
+    }}
+    [data-testid="stSidebarCollapsedControl"] svg,
+    [data-testid="stSidebarCollapsedControl"] span,
+    [data-testid="stSidebarCollapsedControl"] p {{
+        fill: #ffffff !important;
+        color: #ffffff !important;
+        stroke: none !important;
+        opacity: 1 !important;
     }}
 
     /* ── Sidebar ──────────────────────────────────────────────────────────── */
