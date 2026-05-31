@@ -50,7 +50,7 @@ async def set_starters():
     starters = random.sample(QUESTION_POOL, 4)
     return [
         cl.Starter(
-            label=f"{badge} {q[:72]}",
+            label=f"{badge} {q}",
             message=q,
         )
         for badge, q in starters
@@ -82,7 +82,6 @@ async def on_chat_start():
     mcp_tools = await client.get_tools()
     agent = create_agent(model, mcp_tools, system_prompt=SYSTEM_PROMPT)
     cl.user_session.set("agent", agent)
-
 
 
 # ── Message handler ────────────────────────────────────────────────────────────
