@@ -11,10 +11,14 @@ async def _small_pool(dsn=None, *, min_size=10, max_size=10, **kw):
     return await _orig_create_pool(dsn, min_size=1, max_size=3, statement_cache_size=0, **kw)
 _asyncpg.create_pool = _small_pool
 
+import logging
+
 import chainlit as cl
-from langchain.agents import create_agent
+from langgraph.prebuilt import create_react_agent
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain_mcp_adapters.client import MultiServerMCPClient
+
+_log = logging.getLogger(__name__)
 
 from config import (
     CLINICALTRIALS_MCP_URL, PUBMED_MCP_URL,
@@ -99,7 +103,7 @@ async def on_chat_start():
         "pubmed":         {"url": PUBMED_MCP_URL,         "transport": "streamable_http"},
     })
     mcp_tools = await client.get_tools()
-    agent = create_agent(model, mcp_tools, system_prompt=SYSTEM_PROMPT)
+    agent = create_react_agent(model, mcp_tools, state_modifier=SYSTEM_PROMPT)
     cl.user_session.set("agent", agent)
 
 
@@ -178,8 +182,8 @@ async def handle_query(query: str):
                     if (chunk and isinstance(chunk.content, str) and chunk.content
                             and not getattr(chunk, "tool_call_chunks", [])):
                         pending += chunk.content
-        except Exception:
-            pass
+        except Exception as exc:
+            _log.error("Agent error: %r", exc)
         if pending:
             await msg.stream_token(pending)
         elif not msg.content:

@@ -4,7 +4,7 @@ import os
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
-from langchain.agents import create_agent
+from langgraph.prebuilt import create_react_agent
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
 from config import (
@@ -56,7 +56,7 @@ async def main() -> None:
         }
     )
     mcp_tools = await client.get_tools()
-    agent = create_agent(model, mcp_tools, system_prompt=SYSTEM_PROMPT)
+    agent = create_react_agent(model, mcp_tools, state_modifier=SYSTEM_PROMPT)
 
     ct_tools = [t.name for t in mcp_tools if "clinical" in t.name.lower() or "trial" in t.name.lower()]
     pm_tools = [t.name for t in mcp_tools if t.name not in ct_tools]
