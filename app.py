@@ -98,13 +98,18 @@ async def on_chat_start():
     cl.user_session.set("lc_messages", [])
     cl.user_session.set("turn", 0)
 
-    client = MultiServerMCPClient({
-        "clinicaltrials": {"url": CLINICALTRIALS_MCP_URL, "transport": "streamable_http"},
-        "pubmed":         {"url": PUBMED_MCP_URL,         "transport": "streamable_http"},
-    })
-    mcp_tools = await client.get_tools()
-    agent = create_react_agent(model, mcp_tools, prompt=SYSTEM_PROMPT)
-    cl.user_session.set("agent", agent)
+    try:
+        client = MultiServerMCPClient({
+            "clinicaltrials": {"url": CLINICALTRIALS_MCP_URL, "transport": "streamable_http"},
+            "pubmed":         {"url": PUBMED_MCP_URL,         "transport": "streamable_http"},
+        })
+        mcp_tools = await client.get_tools()
+        agent = create_react_agent(model, mcp_tools, prompt=SYSTEM_PROMPT)
+        cl.user_session.set("agent", agent)
+        _log.info("Agent initialised with %d tools", len(mcp_tools))
+    except Exception as exc:
+        _log.error("on_chat_start failed: %r", exc)
+        raise
 
 
 # ── Message handler ────────────────────────────────────────────────────────────
@@ -120,6 +125,10 @@ async def handle_query(query: str):
     sid     = cl.user_session.get("db_session_id")
     uid     = cl.user_session.get("db_user_id")
     turn    = cl.user_session.get("turn", 0)
+
+    if agent is None:
+        await cl.Message(content="⚠️ Agent failed to start — check server logs.").send()
+        return
 
     lc_msgs.append(HumanMessage(content=query))
 
