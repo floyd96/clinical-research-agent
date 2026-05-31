@@ -5,7 +5,7 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: bash start.sh
     envVars:
-      - key: HF_TOKEN
+      - key: GROQ_API_KEY
         sync: false
       - key: SUPABASE_URL
         sync: false

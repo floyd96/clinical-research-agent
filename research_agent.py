@@ -2,14 +2,14 @@ import asyncio
 import os
 
 from dotenv import load_dotenv
-from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
+from langchain_groq import ChatGroq
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain.agents import create_agent
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
 from config import (
     CLINICALTRIALS_MCP_URL, PUBMED_MCP_URL,
-    MODEL_ID, MAIN_MAX_TOKENS, CLASSIFIER_MAX_TOKENS,
+    MODEL_ID, CLASSIFIER_MODEL_ID, MAIN_MAX_TOKENS, CLASSIFIER_MAX_TOKENS,
 )
 from prompts import SYSTEM_PROMPT
 
@@ -17,22 +17,20 @@ load_dotenv()
 
 # ── LLM endpoints ─────────────────────────────────────────────────────────────
 
-_llm = HuggingFaceEndpoint(
-    repo_id=MODEL_ID,
-    task="text-generation",
-    huggingfacehub_api_token=os.getenv("HF_TOKEN"),
-    max_new_tokens=MAIN_MAX_TOKENS,
+model = ChatGroq(
+    model=MODEL_ID,
+    api_key=os.getenv("GROQ_API_KEY"),
+    temperature=0,
+    max_tokens=MAIN_MAX_TOKENS,
 )
-model = ChatHuggingFace(llm=_llm)
 
-# Separate endpoint capped at CLASSIFIER_MAX_TOKENS — one-word output only.
-_classifier_llm = HuggingFaceEndpoint(
-    repo_id=MODEL_ID,
-    task="text-generation",
-    huggingfacehub_api_token=os.getenv("HF_TOKEN"),
-    max_new_tokens=CLASSIFIER_MAX_TOKENS,
+# Separate smaller model for intent classification — one-word output only.
+classifier_model = ChatGroq(
+    model=CLASSIFIER_MODEL_ID,
+    api_key=os.getenv("GROQ_API_KEY"),
+    temperature=0,
+    max_tokens=CLASSIFIER_MAX_TOKENS,
 )
-classifier_model = ChatHuggingFace(llm=_classifier_llm)
 
 # ── CLI runner ────────────────────────────────────────────────────────────────
 
