@@ -160,8 +160,12 @@ async def handle_query(query: str):
     msg = cl.Message(content="")
     sources: set[tuple[str, str]] = set()
 
+    # Keep last 4 messages (2 turns) to stay within Groq's 12k token/request limit.
+    # System prompt + 17 tool definitions already consume ~7k tokens.
+    ctx_msgs = lc_msgs[-4:]
+
     if intent == "followup":
-        async for chunk in model.astream([SystemMessage(content=SYSTEM_PROMPT)] + lc_msgs):
+        async for chunk in model.astream([SystemMessage(content=SYSTEM_PROMPT)] + ctx_msgs):
             if isinstance(chunk.content, str) and chunk.content:
                 await msg.stream_token(chunk.content)
     else:
@@ -170,7 +174,7 @@ async def handle_query(query: str):
         pending = ""
         try:
             async for event in agent.astream_events(
-                {"messages": lc_msgs},
+                {"messages": ctx_msgs},
                 version="v2",
                 config={"recursion_limit": 10},
             ):

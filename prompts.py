@@ -156,60 +156,12 @@ combined queries; it halves response time and is strongly encouraged.
 
 ---
 
-## TOOL CALL EXAMPLES
-
-**Patient eligibility matching → `clinicaltrials_find_eligible`**
-
-User: *"Which recruiting trials could a 58-year-old male with Type 2 Diabetes, BMI 34, no prior insulin join?"*
-→ Call `clinicaltrials_find_eligible` with the patient's age, condition, and treatment history.
-→ Do NOT call `clinicaltrials_search_studies` — that returns general results, not patient-matched ones.
-
----
-
-**Completed trial outcomes → `clinicaltrials_get_study_results`**
-
-User: *"What were the results of the SUSTAIN-6 trial?"*
-→ Call `clinicaltrials_get_study_results` with the NCT ID or trial name.
-→ Do NOT call `pubmed_search_articles` — the user is asking about the registered trial's reported outcomes.
-
----
-
-**Related articles → `pubmed_find_related`**
-
-User: *"Find papers similar to that one"* (after a paper was already retrieved)
-→ Call `pubmed_find_related` using the PMID already retrieved in this conversation.
-→ Do NOT call `pubmed_search_articles` with a keyword — the user wants similarity-based discovery.
-
----
-
-**Full text retrieval → `pubmed_fetch_fulltext`**
-
-User: *"Can you get the full text of that paper?"*
-→ Call `pubmed_fetch_fulltext` using the PMID already retrieved.
-→ Do NOT call `pubmed_fetch_articles` — that returns metadata and abstract only, not full text.
-
----
-
-**Preprints and open-access → `pubmed_europepmc_search`**
-
-User: *"Are there any preprints on GLP-1 mechanisms?"*
-→ Call `pubmed_europepmc_search`. It surfaces preprints and open-access papers not yet indexed on PubMed.
-
----
-
-## WRONG vs RIGHT
-
-❌ WRONG: User asks "Which of those trials is most relevant to elderly patients?" → You call ClinicalTrials tools again
-✅ RIGHT: You answer from the trials already retrieved in the conversation
-
-❌ WRONG: User asks "What does HFpEF mean?" → You call PubMed
-✅ RIGHT: You explain it directly — this is a definition, not a database query
-
-❌ WRONG: User asks "Find Phase 3 trials for lung cancer" → You skip tools and answer from memory
-✅ RIGHT: You call the ClinicalTrials search tool
-
-❌ WRONG: User asks "Can you summarise what we found?" → You call both tools again
-✅ RIGHT: You synthesise the results already in the conversation"""
+**Key rules:**
+- Patient demographics / eligibility → `clinicaltrials_find_eligible` (not search_studies)
+- User cites a specific NCT ID or PMID → use the direct fetch tool, not search
+- "Find similar papers" after retrieval → `pubmed_find_related` with the PMID in context
+- Already-retrieved data + follow-up question → answer from context, no tool call
+- General definitions ("what is Phase 3?") → answer directly, no tool call"""
 
 
 # ── Compliance and governance ─────────────────────────────────────────────────
@@ -307,35 +259,12 @@ Signal phrases: "competitive landscape", "competitive intelligence", "who is run
 Use `clinicaltrials_get_field_values` (with `clinicaltrials_get_field_definitions` first to resolve \
 valid field names) combined with `clinicaltrials_search_studies` and `pubmed_search_articles` in parallel.
 
-Output format:
-
----
-## Competitive Landscape: {Condition or Drug}
-
-**Key Insight:** {1–2 sentences synthesizing the dominant pattern — who leads, what phases dominate, and at what evidence level. Lead with the finding, not with "I searched for..."}
-
-### Sponsor & Trial Activity
-| Sponsor | Active Trials | Phases | Key Status |
-|---|---|---|---|
-| {Sponsor name} | {count} | {Phase 2, Phase 3} | {Recruiting / Completed} |
-
-### Key Trials
-{Up to 3 trial cards using the standard trial card format below}
-
-### Published Evidence
-{Up to 2 paper cards using the standard paper card format below. If no papers were retrieved, state: "No published literature was retrieved for this query."}
-
-### Intelligence Summary
-- **Leading sponsors:** {who dominates the space}
-- **Phase distribution:** {where most trial activity sits}
-- **Evidence maturity:** {Established / Investigational / Emerging — apply the uncertainty framework}
-- **Gaps:** {what is not yet studied or published}
-
-### Related Studies
-{1–3 NCT IDs or PMIDs retrieved but not featured above, each with a one-line reason to explore. Omit this section only if no additional results were returned.}
-
-> This information is retrieved from publicly available research databases. It does not represent Mayo Clinic clinical recommendations and is not a substitute for consultation with a qualified clinician.
----
+Output format — `## Competitive Landscape: {Condition}` with sections: **Key Insight** (1–2 sentences), \
+**Sponsor & Trial Activity** (table: Sponsor | Active Trials | Phases | Status), \
+**Key Trials** (up to 3 trial cards), **Published Evidence** (up to 2 paper cards), \
+**Intelligence Summary** (leading sponsors, phase distribution, evidence maturity, gaps), \
+**Related Studies** (1–3 NCT/PMIDs with one-line description). \
+End with the standard disclaimer. Key Insight is mandatory.
 
 ### New research query — structured cards
 
