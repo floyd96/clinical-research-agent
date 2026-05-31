@@ -61,7 +61,8 @@ def oauth_callback(
 ) -> Optional[cl.User]:
     email = raw_user_data.get("email", "")
     if email.lower() in [e.lower() for e in BETA_WHITELIST]:
-        return cl.User(identifier=email, metadata=raw_user_data)
+        name = raw_user_data.get("given_name") or raw_user_data.get("name") or email.split("@")[0]
+        return cl.User(identifier=email, display_name=name, metadata=raw_user_data)
     return None
 
 
@@ -92,7 +93,8 @@ async def on_chat_start():
 
     user = cl.user_session.get("user")
     email = user.identifier if user else ""
-    first_name = email.split("@")[0].capitalize()
+    meta = (user.metadata or {}) if user else {}
+    first_name = meta.get("given_name") or meta.get("name") or email.split("@")[0].capitalize()
 
     # Supabase SDK is synchronous — run off the event loop so it doesn't block
     # other sessions' streaming during the HTTP round trip.
@@ -213,7 +215,7 @@ async def handle_query(query: str):
                 "with a specific condition, drug name, or NCT ID."
             )
 
-    # Attach source links as inline elements
+    # Render citations inline at the bottom of the message (no side panel).
     if sources:
         ct = sorted(i for t, i in sources if t == "ct")
         pm = sorted(i for t, i in sources if t == "pm")
@@ -224,10 +226,7 @@ async def handle_query(query: str):
         if pm:
             lines.append("**📚 PubMed**")
             lines.extend(f"- [PMID {pmid}](https://pubmed.ncbi.nlm.nih.gov/{pmid}/)" for pmid in pm[:5])
-        panel_title = f"Evidence & Citations — {len(ct) + len(pm)} source(s)"
-        msg.elements = [
-            cl.Text(name=panel_title, content="\n".join(lines), display="side")
-        ]
+        await msg.stream_token("\n\n---\n\n**📎 Sources**\n\n" + "\n".join(lines))
 
     await msg.update()
 

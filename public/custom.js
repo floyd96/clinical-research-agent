@@ -75,7 +75,8 @@
             .then(function(r) { return r.ok ? r.json() : null; })
             .then(function(data) {
                 if (!data) return;
-                var name = _nameFromEmail(data.identifier || data.email || '');
+                var meta = data.metadata || {};
+                var name = meta.given_name || meta.name || _nameFromEmail(data.identifier || data.email || '');
                 if (!name) return;
                 el.textContent = 'Good ' + _timePeriod() + ', ' + name + '.';
             })
@@ -97,7 +98,7 @@
             'font-size:34px',
             'font-weight:700',
             'color:#0E3293',
-            'margin:0 0 6px 0',
+            'margin:40px 0 6px 0',
             'text-align:center',
             'font-family:Inter,sans-serif',
             'width:100%',
@@ -151,6 +152,25 @@
     setTimeout(injectDataSourceBadge, 500);
     setTimeout(injectDataSourceBadge, 2000);
 
+    // Show the user's name on the existing user-nav avatar button (keeps the
+    // logout dropdown working) instead of the "S" initial. CSS hides the avatar
+    // circle and renders the name via ::after from this CSS variable.
+    function applyUserName() {
+        if (document.documentElement.style.getPropertyValue('--cl-username')) return;
+        fetch('/user', { credentials: 'include' })
+            .then(function(r) { return r.ok ? r.json() : null; })
+            .then(function(data) {
+                if (!data) return;
+                var meta = data.metadata || {};
+                var name = meta.given_name || meta.name || data.identifier || 'Account';
+                document.documentElement.style.setProperty('--cl-username', JSON.stringify(name));
+            })
+            .catch(function() {});
+    }
+    applyUserName();
+    setTimeout(applyUserName, 800);
+    setTimeout(applyUserName, 2000);
+
     // Send sound: click on #chat-submit.
     // Done sound: #stop-button disappearing (Chainlit swaps submit↔stop during streaming).
     function wireAudio() {
@@ -165,6 +185,7 @@
     new MutationObserver(function () {
         injectGreeting();
         injectDataSourceBadge();
+        applyUserName();
         hideThemeToggle();
         setPlaceholder();
         wireAudio();

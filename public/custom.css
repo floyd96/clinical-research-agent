@@ -65,7 +65,7 @@ a { color: #1F497D !important; }
 #welcome-screen img { display: none !important; }
 
 /* ── Push welcome screen content below the header ──────────────────────── */
-#welcome-screen { padding-top: 32px !important; }
+#welcome-screen { padding-top: 40px !important; }
 
 /* ── Starter pills — allow full text, no truncation ────────────────────── */
 /* Use #welcome-screen button — stable across Chainlit versions */
@@ -104,24 +104,20 @@ textarea::placeholder {
 }
 #cl-datasource-badge .cl-dot { opacity: 0.5; }
 
-/* ── Right evidence side panel ─────────────────────────────────────────── */
-/* Chainlit 2.11 uses react-resizable-panels. The side panel is a data-panel
-   with an inline flex:40 1 0px (= 40% of viewport). Override to fixed width. */
-div[data-panel]:has(#side-view-title) {
-    flex: 0 0 300px !important;
-}
-
-/* The inner <aside> has hardcoded mr-4 mb-4 — the mr-4 is the right-side gap. */
-aside:has(#side-view-title) {
-    margin-right: 0 !important;
-    margin-bottom: 0 !important;
-}
-
-/* Collapse the drag handle strip between chat and panel. */
-[data-panel-resize-handle-id],
-[data-resize-handle] {
-    width: 0 !important;
+/* ── User name on the nav button (replaces the "S" avatar) ─────────────── */
+/* Keep #user-nav-button as the dropdown/logout trigger, but hide the avatar
+   circle and render the name via ::after (set from --cl-username in custom.js). */
+#user-nav-button {
+    width: auto !important;
     min-width: 0 !important;
-    flex: 0 0 0 !important;
-    overflow: hidden !important;
+    padding: 4px 10px !important;
+    border-radius: 6px !important;
+}
+#user-nav-button > * { display: none !important; }   /* hide avatar circle */
+#user-nav-button::after {
+    content: var(--cl-username, 'Account');
+    color: #F9FAFB !important;
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
 }
