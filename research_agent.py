@@ -56,7 +56,7 @@ async def main() -> None:
         }
     )
     mcp_tools = await client.get_tools()
-    agent = create_react_agent(model, mcp_tools, state_modifier=SYSTEM_PROMPT)
+    agent = create_react_agent(model, mcp_tools, prompt=SYSTEM_PROMPT)
 
     ct_tools = [t.name for t in mcp_tools if "clinical" in t.name.lower() or "trial" in t.name.lower()]
     pm_tools = [t.name for t in mcp_tools if t.name not in ct_tools]

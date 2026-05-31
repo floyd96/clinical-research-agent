@@ -103,7 +103,7 @@ async def on_chat_start():
         "pubmed":         {"url": PUBMED_MCP_URL,         "transport": "streamable_http"},
     })
     mcp_tools = await client.get_tools()
-    agent = create_react_agent(model, mcp_tools, state_modifier=SYSTEM_PROMPT)
+    agent = create_react_agent(model, mcp_tools, prompt=SYSTEM_PROMPT)
     cl.user_session.set("agent", agent)
 
 
