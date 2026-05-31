@@ -114,10 +114,21 @@ async def handle_query(query: str):
         ctx = _build_classifier_context(lc_msgs[:-1])
         try:
             result = await classifier_model.ainvoke(
-                f"Research context:\n{ctx}\n\nNew message:\n{query}\n\n"
-                "Reply with exactly one word — 'followup' or 'research':"
+                f"Classify the new message as 'followup' or 'research'.\n\n"
+                f"'followup' ONLY when the user explicitly references results already "
+                f"shown — e.g. 'those trials', 'that study', 'which of those', "
+                f"'tell me more about that', 'summarise what you found'. "
+                f"Topical overlap with prior context is NOT a followup.\n"
+                f"'research' for any new data request: new condition, drug, patient "
+                f"profile, trial search, paper search, NCT ID, or PMID lookup.\n\n"
+                f"Prior context: {ctx}\n"
+                f"New message: {query}\n\n"
+                f"Reply with one word only — 'followup' or 'research':"
             )
-            intent = "followup" if "followup" in result.content.lower() else "research"
+            # Check the first word only — substring search catches false positives
+            # like "This is a followup to..." which should route to research.
+            first = re.split(r'\W+', result.content.strip().lower())[0]
+            intent = "followup" if first == "followup" else "research"
         except Exception:
             pass
 
