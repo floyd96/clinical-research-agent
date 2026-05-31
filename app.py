@@ -178,8 +178,11 @@ async def handle_query(query: str):
                 if kind == "on_tool_start":
                     pending = ""  # discard inter-tool reasoning; not the final answer
                     badge = "🏥" if _is_ct_tool(event["name"]) else "📚"
-                    async with cl.Step(name=f"{badge} {event['name']}", type="tool"):
-                        pass
+                    try:
+                        async with cl.Step(name=f"{badge} {event['name']}", type="tool"):
+                            pass
+                    except Exception as step_exc:
+                        _log.warning("Step persistence failed (non-fatal): %r", step_exc)
                 elif kind == "on_tool_end":
                     raw = str(event["data"].get("output", ""))
                     for nct in re.findall(r'NCT\d{8}', raw):
