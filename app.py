@@ -22,7 +22,6 @@ from research_agent import model, classifier_model
 
 
 _CT_KEYWORDS = {"clinical", "trial", "nct", "study"}
-_PM_KEYWORDS = {"pubmed", "article", "paper", "literature", "abstract", "pmid", "mesh"}
 
 
 def _is_ct_tool(name: str) -> bool:

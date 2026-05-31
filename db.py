@@ -59,37 +59,12 @@ def create_session(user_id: str) -> str:
     return result.data[0]["id"]
 
 
-def create_session_with_id(session_id: str, user_id: str) -> str:
-    """Create a chat session row with a specific ID (synced with Chainlit's thread_id)."""
-    client = _get_client()
-    client.table("chat_sessions").insert({"id": session_id, "user_id": user_id}).execute()
-    return session_id
-
-
-def close_session(session_id: str) -> None:
-    """Stamp ended_at when the user starts a new session."""
-    client = _get_client()
-    client.table("chat_sessions").update({"ended_at": _now()}).eq("id", session_id).execute()
-
 
 def set_session_title(session_id: str, first_user_message: str) -> None:
     """Set session title from the first user message (called once, on first turn)."""
     client = _get_client()
     client.table("chat_sessions").update({"title": first_user_message[:120]}).eq("id", session_id).execute()
 
-
-def load_recent_sessions(user_id: str, limit: int = 20) -> list[dict]:
-    """Return the user's most recent sessions, newest first. Each dict has id, title, started_at."""
-    client = _get_client()
-    result = (
-        client.table("chat_sessions")
-        .select("id, title, started_at")
-        .eq("user_id", user_id)
-        .order("started_at", desc=True)
-        .limit(limit)
-        .execute()
-    )
-    return result.data
 
 
 # ── chat_messages ─────────────────────────────────────────────────────────────
@@ -124,47 +99,3 @@ def save_message(
     return result.data[0]["id"]
 
 
-def load_session_messages(session_id: str) -> list[dict]:
-    """Return all messages for a session ordered by msg_index. Each dict has id, msg_index, role, content, tools_used, sources."""
-    client = _get_client()
-    result = (
-        client.table("chat_messages")
-        .select("id, msg_index, role, content, tools_used, sources")
-        .eq("session_id", session_id)
-        .order("msg_index", desc=False)
-        .execute()
-    )
-    return result.data
-
-
-# ── feedback ──────────────────────────────────────────────────────────────────
-
-def upsert_feedback(message_id: str, user_id: str, vote: str) -> None:
-    """Insert or update a 👍/👎 vote. Idempotent — calling twice updates the existing row."""
-    client = _get_client()
-    client.table("feedback").upsert(
-        {"message_id": message_id, "user_id": user_id, "vote": vote},
-        on_conflict="message_id,user_id",
-    ).execute()
-
-
-def load_session_feedback(session_id: str, user_id: str) -> dict[str, str]:
-    """Return {message_id: vote} for all messages in this session that the user has voted on."""
-    client = _get_client()
-    msgs = (
-        client.table("chat_messages")
-        .select("id")
-        .eq("session_id", session_id)
-        .execute()
-    )
-    if not msgs.data:
-        return {}
-    msg_ids = [row["id"] for row in msgs.data]
-    result = (
-        client.table("feedback")
-        .select("message_id, vote")
-        .eq("user_id", user_id)
-        .in_("message_id", msg_ids)
-        .execute()
-    )
-    return {row["message_id"]: row["vote"] for row in result.data}
