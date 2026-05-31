@@ -129,23 +129,41 @@ async def handle_query(query: str):
             if isinstance(chunk.content, str) and chunk.content:
                 await msg.stream_token(chunk.content)
     else:
-        async for event in agent.astream_events({"messages": lc_msgs}, version="v2"):
-            kind = event["event"]
-            if kind == "on_tool_start":
-                badge = "🏥" if _is_ct_tool(event["name"]) else "📚"
-                async with cl.Step(name=f"{badge} {event['name']}", type="tool"):
-                    pass
-            elif kind == "on_tool_end":
-                raw = str(event["data"].get("output", ""))
-                for nct in re.findall(r'NCT\d{8}', raw):
-                    sources.add(("ct", nct))
-                for pmid in re.findall(r'(?i)(?:"pmid"|pmid)["\s:]+(\d{6,8})', raw):
-                    sources.add(("pm", pmid))
-            elif kind == "on_chat_model_stream":
-                chunk = event["data"].get("chunk")
-                if (chunk and isinstance(chunk.content, str) and chunk.content
-                        and not getattr(chunk, "tool_call_chunks", [])):
-                    await msg.stream_token(chunk.content)
+        # Buffer model text — pre-tool reasoning is discarded on each tool_start.
+        # Only the text generated after the final tool completes reaches the user.
+        pending = ""
+        try:
+            async for event in agent.astream_events(
+                {"messages": lc_msgs},
+                version="v2",
+                config={"recursion_limit": 10},
+            ):
+                kind = event["event"]
+                if kind == "on_tool_start":
+                    pending = ""  # discard inter-tool reasoning; not the final answer
+                    badge = "🏥" if _is_ct_tool(event["name"]) else "📚"
+                    async with cl.Step(name=f"{badge} {event['name']}", type="tool"):
+                        pass
+                elif kind == "on_tool_end":
+                    raw = str(event["data"].get("output", ""))
+                    for nct in re.findall(r'NCT\d{8}', raw):
+                        sources.add(("ct", nct))
+                    for pmid in re.findall(r'(?i)(?:"pmid"|pmid)["\s:]+(\d{6,8})', raw):
+                        sources.add(("pm", pmid))
+                elif kind == "on_chat_model_stream":
+                    chunk = event["data"].get("chunk")
+                    if (chunk and isinstance(chunk.content, str) and chunk.content
+                            and not getattr(chunk, "tool_call_chunks", [])):
+                        pending += chunk.content
+        except Exception:
+            pass
+        if pending:
+            await msg.stream_token(pending)
+        elif not msg.content:
+            await msg.stream_token(
+                "The search did not return results. Try narrowing your query "
+                "with a specific condition, drug name, or NCT ID."
+            )
 
     # Attach source links as inline elements
     if sources:
