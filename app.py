@@ -31,6 +31,17 @@ from research_agent import model, classifier_model
 
 _CT_KEYWORDS = {"clinical", "trial", "nct", "study"}
 
+# Patterns that are unambiguously new research requests — bypass LLM classifier.
+_FORCE_RESEARCH = re.compile(
+    r'^(find|search|show|list|give\s+me|look\s+up|get|fetch|how\s+many|are\s+there|compare)\b'
+    r'|\b(find|search|show|list|identify|retrieve)\b.{0,60}\b(trial|studi|paper|publication|article|literature|record)\b'
+    r'|\bpublished\s+(paper|studi|article|evidence|literature|result)\b'
+    r'|\bNCT\d{6,8}\b'
+    r'|\b\d{2,3}[\s-]?year[\s-]?old\b'
+    r'|\b(HbA1c|eligib)\b',
+    re.IGNORECASE,
+)
+
 
 def _is_ct_tool(name: str) -> bool:
     return any(k in name.lower() for k in _CT_KEYWORDS)
@@ -111,26 +122,27 @@ async def handle_query(query: str):
     # Intent classification (skip on first turn — always research)
     intent = "research"
     if turn > 0:
-        ctx = _build_classifier_context(lc_msgs[:-1])
-        try:
-            result = await classifier_model.ainvoke(
-                f"Classify the new message as 'followup' or 'research'.\n\n"
-                f"'followup' ONLY when the user explicitly references results already "
-                f"shown — e.g. 'those trials', 'that study', 'which of those', "
-                f"'tell me more about that', 'summarise what you found'. "
-                f"Topical overlap with prior context is NOT a followup.\n"
-                f"'research' for any new data request: new condition, drug, patient "
-                f"profile, trial search, paper search, NCT ID, or PMID lookup.\n\n"
-                f"Prior context: {ctx}\n"
-                f"New message: {query}\n\n"
-                f"Reply with one word only — 'followup' or 'research':"
-            )
-            # Check the first word only — substring search catches false positives
-            # like "This is a followup to..." which should route to research.
-            first = re.split(r'\W+', result.content.strip().lower())[0]
-            intent = "followup" if first == "followup" else "research"
-        except Exception:
-            pass
+        # Fast path: deterministic signals that are unambiguously new data requests.
+        # Topical overlap confuses the LLM classifier, so catch obvious cases first.
+        if not _FORCE_RESEARCH.search(query):
+            ctx = _build_classifier_context(lc_msgs[:-1])
+            try:
+                result = await classifier_model.ainvoke(
+                    f"Classify the new message as 'followup' or 'research'.\n\n"
+                    f"'followup' ONLY when the user explicitly references results already "
+                    f"shown — e.g. 'those trials', 'that study', 'which of those', "
+                    f"'tell me more about that', 'summarise what you found'. "
+                    f"Topical overlap alone is NOT a followup.\n"
+                    f"'research' for any new data request: new condition, drug, patient "
+                    f"profile, trial search, paper search, NCT ID, or PMID lookup.\n\n"
+                    f"Prior context: {ctx}\n"
+                    f"New message: {query}\n\n"
+                    f"Reply with one word only — 'followup' or 'research':"
+                )
+                first = re.split(r'\W+', result.content.strip().lower())[0]
+                intent = "followup" if first == "followup" else "research"
+            except Exception:
+                pass
 
     msg = cl.Message(content="")
     sources: set[tuple[str, str]] = set()
