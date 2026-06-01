@@ -1,4 +1,4 @@
-# 🩺 Mayo Clinic Research Assistant
+# 🩺 Clinic Research Assistant
 
 An AI research assistant that searches **ClinicalTrials.gov** and **PubMed** simultaneously, delivering **grounded, cited** answers about clinical trials and published biomedical literature. Built as a Life Sciences demo — enterprise-grade UX, source-grounded responses, no fabrication.
 
